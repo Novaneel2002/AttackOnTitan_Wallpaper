@@ -63,12 +63,8 @@ function handleResize() {
  */
 function isSceneHighMotion() {
   if ((isPointerActive && timeSinceMouseMove < 0.6) || eren.isSwinging || eren.preJumpTimer > 0 || eren.flipTimer > 0 || eren.thrustT > 0 || eren.bladeHold > 0 || eren.mode !== MODE_PERCH) return true;
-  if (isLmbHeld || activeDragConnIdx >= 0 || trailingCablesActive() || eren.windBlend > 0.02 || eren.reactionBlend > 0.03 || eren.landSquash > 0 || eren.cursorNear > 0.35) return true;
+  if (isLmbHeld || trailingCablesActive() || eren.windBlend > 0.02 || eren.reactionBlend > 0.03 || eren.landSquash > 0 || eren.cursorNear > 0.35) return true;
   if (clickEffect.active || activeDustCount > 0 || (typeof activeSteamCount !== 'undefined' && activeSteamCount > 0) || audioEnergy > 0.02) return true;
-  for (let i = 0; i < WEB_CONN_POOL_SIZE; i++) {
-    const st = webConnState[i];
-    if (st === WEB_STATE_FADING || (st === WEB_STATE_ACTIVE && webConnAge[i] < 0.7)) return true;
-  }
   for (let i = 0; i < CARD_COUNT; i++) {
     const c = cards[i];
     if (c.loadProgress < 1) return true;
@@ -228,12 +224,8 @@ function renderFrame(now) {
     drawCard(cards[drawOrder[i]]);
   }
 
-  // 8. Update Eren, photo-to-photo web connections, lingering web tags, cast shadow, and Eren
+  // 8. Update Eren, cast shadow, and Eren
   updateEren(dt);
-  updatePhotoWebConnections(dt);
-  updateWebTags(dt);
-  drawPhotoWebConnections();
-  drawWebTags();
   drawErenCastShadow();
   drawEren();
 

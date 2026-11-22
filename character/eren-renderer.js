@@ -29,7 +29,7 @@ function drawEren() {
   if (!config.showEren || !eren.initialized) return;
 
   const s = uniformScale * config.erenScale;
-  const ink = Math.max(1.0, 1.35 * s);
+  const ink = Math.max(0.65, 0.75 * s);
 
   // Background effects behind Eren
   drawLandingDust();
@@ -130,8 +130,8 @@ function drawEren() {
       const leadElbowY = -7.5 * s;
       const leadHandX = 11.5 * dir * s;
       const leadHandY = -12.5 * s;
-      drawOutlinedSegment(4.0 * dir * s, -4.0 * s, leadElbowX, leadElbowY, 3.6 * s, '#a8784a', ink);
-      drawOutlinedSegment(leadElbowX, leadElbowY, leadHandX, leadHandY, 3.4 * s, '#f2c9a3', ink);
+      drawOutlinedSegment(4.0 * dir * s, -4.0 * s, leadElbowX, leadElbowY, 3.6 * s, '#be8650', ink);
+      drawOutlinedSegment(leadElbowX, leadElbowY, leadHandX, leadHandY, 3.4 * s, '#fee4d2', ink);
       drawErenHand(leadHandX, leadHandY, s, ink, 'grip', dir);
       drawOdmBlade(leadHandX, leadHandY, (dir > 0 ? -1.1 : 1.1) + bodyTilt * 0.4, s, ink);
 
@@ -140,8 +140,8 @@ function drawEren() {
       const backElbowY = -4.5 * s;
       const backHandX = -10.5 * dir * s;
       const backHandY = 0.5 * s;
-      drawOutlinedSegment(-4.0 * dir * s, -4.0 * s, backElbowX, backElbowY, 3.6 * s, '#a8784a', ink);
-      drawOutlinedSegment(backElbowX, backElbowY, backHandX, backHandY, 3.4 * s, '#f2c9a3', ink);
+      drawOutlinedSegment(-4.0 * dir * s, -4.0 * s, backElbowX, backElbowY, 3.6 * s, '#be8650', ink);
+      drawOutlinedSegment(backElbowX, backElbowY, backHandX, backHandY, 3.4 * s, '#fee4d2', ink);
       drawErenHand(backHandX, backHandY, s, ink, 'grip', -dir);
       drawOdmBlade(backHandX, backHandY, (dir > 0 ? 1.9 : -1.9) + bodyTilt * 0.4, s, ink);
     }
@@ -227,10 +227,10 @@ function drawEren() {
       drawOdmGear(0, 0, s, ink, dir, 0);
 
       // Hands holding onto the cables on each side
-      drawOutlinedSegment(-4.2 * s, -7.0 * s, -5.8 * s, -4.0 * s, 3.4 * s, '#a8784a', ink);
+      drawOutlinedSegment(-4.2 * s, -7.0 * s, -5.8 * s, -4.0 * s, 3.4 * s, '#be8650', ink);
       drawErenHand(-5.8 * s, -4.0 * s, s, ink, 'grip', -1);
 
-      drawOutlinedSegment(4.2 * s, -7.0 * s, 5.8 * s, -4.0 * s, 3.4 * s, '#a8784a', ink);
+      drawOutlinedSegment(4.2 * s, -7.0 * s, 5.8 * s, -4.0 * s, 3.4 * s, '#be8650', ink);
       drawErenHand(5.8 * s, -4.0 * s, s, ink, 'grip', 1);
 
       // Head
@@ -269,8 +269,8 @@ function drawEren() {
         // Arms: holding tea mug if morning, otherwise hands resting on scabbards
         if (timeOfDayMode === TOD_MORNING) {
           // Teacup
-          drawOutlinedSegment(-4.2 * s, -11.5 * s + breath, -1.8 * s, -7.5 * s + breath, 3.4 * s, '#a8784a', ink);
-          drawOutlinedSegment(4.2 * s, -11.5 * s + breath, 1.8 * s, -7.5 * s + breath, 3.4 * s, '#a8784a', ink);
+          drawOutlinedSegment(-4.2 * s, -11.5 * s + breath, -1.8 * s, -7.5 * s + breath, 3.4 * s, '#be8650', ink);
+          drawOutlinedSegment(4.2 * s, -11.5 * s + breath, 1.8 * s, -7.5 * s + breath, 3.4 * s, '#be8650', ink);
           drawErenHand(0, -7.5 * s + breath, s, ink, 'grip', 1);
 
           // Ceramic teacup + steam
@@ -285,10 +285,10 @@ function drawEren() {
           ctx.fillStyle = '#653a1e';
           ctx.fillRect(-1.8 * s, -7.8 * s + breath, 3.6 * s, 1.2 * s);
         } else {
-          drawOutlinedSegment(-4.2 * s, -11.5 * s + breath, -7.0 * s, -7.5 * s + breath, 3.4 * s, '#a8784a', ink);
+          drawOutlinedSegment(-4.2 * s, -11.5 * s + breath, -7.0 * s, -7.5 * s + breath, 3.4 * s, '#be8650', ink);
           drawErenHand(-7.0 * s, -7.5 * s + breath, s, ink, 'relaxed', -1);
 
-          drawOutlinedSegment(4.2 * s, -11.5 * s + breath, 7.0 * s, -7.5 * s + breath, 3.4 * s, '#a8784a', ink);
+          drawOutlinedSegment(4.2 * s, -11.5 * s + breath, 7.0 * s, -7.5 * s + breath, 3.4 * s, '#be8650', ink);
           drawErenHand(7.0 * s, -7.5 * s + breath, s, ink, 'relaxed', 1);
         }
 
@@ -307,7 +307,7 @@ function drawEren() {
 
         // Dark leather thigh straps wrapping around upper thighs (Image 1)
         ctx.strokeStyle = '#42281a';
-        ctx.lineWidth = 1.0 * s;
+        ctx.lineWidth = 0.65 * s;
         ctx.beginPath();
         ctx.moveTo(-6.2 * s, -4.4 * s); ctx.lineTo(-2.4 * s, -3.8 * s);
         ctx.moveTo(-6.5 * s, -2.4 * s); ctx.lineTo(-2.8 * s, -1.8 * s);
@@ -323,18 +323,18 @@ function drawEren() {
 
         if (isBladesDrawn) {
           // Combat ready stance right after landing: both blades held defensively
-          drawOutlinedSegment(-4.5 * s, -14.5 * s + breath, -8.0 * s, -12.0 * s + breath, 3.5 * s, '#b8824f', ink);
+          drawOutlinedSegment(-4.5 * s, -14.5 * s + breath, -8.0 * s, -12.0 * s + breath, 3.5 * s, '#be8650', ink);
           drawErenHand(-8.0 * s, -12.0 * s + breath, s, ink, 'grip', -1);
           drawOdmBlade(-8.0 * s, -12.0 * s + breath, -1.2, s, ink);
 
-          drawOutlinedSegment(4.5 * s, -14.5 * s + breath, 8.0 * s, -12.0 * s + breath, 3.5 * s, '#b8824f', ink);
+          drawOutlinedSegment(4.5 * s, -14.5 * s + breath, 8.0 * s, -12.0 * s + breath, 3.5 * s, '#be8650', ink);
           drawErenHand(8.0 * s, -12.0 * s + breath, s, ink, 'grip', 1);
           drawOdmBlade(8.0 * s, -12.0 * s + breath, 1.2, s, ink);
 
         } else if (sassy > 0.05) {
           // Sassy / Fierce glare: arms crossed over chest
-          drawOutlinedSegment(-4.5 * s, -14.5 * s + breath, 2.5 * s, -10.0 * s + breath, 3.6 * s, '#b8824f', ink);
-          drawOutlinedSegment(4.5 * s, -14.5 * s + breath, -2.5 * s, -11.0 * s + breath, 3.6 * s, '#b8824f', ink);
+          drawOutlinedSegment(-4.5 * s, -14.5 * s + breath, 2.5 * s, -10.0 * s + breath, 3.6 * s, '#be8650', ink);
+          drawOutlinedSegment(4.5 * s, -14.5 * s + breath, -2.5 * s, -11.0 * s + breath, 3.6 * s, '#be8650', ink);
           drawErenHand(2.5 * s, -10.0 * s + breath, s, ink, 'fist', 1);
           drawErenHand(-2.5 * s, -11.0 * s + breath, s, ink, 'fist', -1);
 
@@ -342,27 +342,28 @@ function drawEren() {
           // Image 1 Signature Pose: Clenched right fist raised in determination ("TATAKAE!")
           const fistX = 7.8 * s;
           const fistY = -18.2 * s + breath;
-          drawOutlinedSegment(4.5 * s, -14.5 * s + breath, 8.2 * s, -14.0 * s + breath, 3.6 * s, '#b8824f', ink);
-          drawOutlinedSegment(8.2 * s, -14.0 * s + breath, fistX, fistY, 3.4 * s, '#fce9d8', ink);
+          drawOutlinedSegment(4.5 * s, -14.5 * s + breath, 8.2 * s, -14.0 * s + breath, 3.6 * s, '#be8650', ink);
+          drawOutlinedSegment(8.2 * s, -14.0 * s + breath, fistX, fistY, 3.4 * s, '#fee4d2', ink);
           drawErenHand(fistX, fistY, s, ink, 'fist', 1);
 
-          // Left arm hanging down with clenched fist + Training Corps sleeve badge (Image 1)
+          // Left arm hanging down with clenched fist + Wings of Freedom sleeve badge (Survey Corps)
           const leftElbowX = -6.8 * s;
           const leftElbowY = -10.5 * s + breath;
           const leftHandX = -7.2 * s;
           const leftHandY = -5.0 * s + breath;
-          drawOutlinedSegment(-4.5 * s, -14.5 * s + breath, leftElbowX, leftElbowY, 3.6 * s, '#b8824f', ink);
-          drawOutlinedSegment(leftElbowX, leftElbowY, leftHandX, leftHandY, 3.4 * s, '#fce9d8', ink);
-          drawTrainingCorpsBadge(leftElbowX - 0.5 * s, leftElbowY - 1.2 * s, 2.6 * s);
+          drawOutlinedSegment(-4.5 * s, -14.5 * s + breath, leftElbowX, leftElbowY, 3.6 * s, '#be8650', ink);
+          drawOutlinedSegment(leftElbowX, leftElbowY, leftHandX, leftHandY, 3.4 * s, '#fee4d2', ink);
+          drawWingsOfFreedom(leftElbowX - 0.5 * s, leftElbowY - 1.2 * s, 3.4 * s);
           drawErenHand(leftHandX, leftHandY, s, ink, 'fist', -1);
         }
 
-        // Head (Shouting battle cry expression from Image 1)
+        // Head (Shouting during combat/reaction/click, or fierce determined glare when perched)
+        const isShouting = (eren.bladeHold > 0 || (typeof clickEffect !== 'undefined' && clickEffect.active) || eren.reactionBlend > 0.05);
         eren.headRot = 0;
         eren.headFlipY = 1;
         eren.headWorldX = worldOriginX;
         eren.headWorldY = worldOriginY - 25.5 * s + breath;
-        drawErenHead(0, -25.5 * s + breath, s, eren.facingScale, eren.cursorNear, true, false);
+        drawErenHead(0, -25.5 * s + breath, s, eren.facingScale, eren.cursorNear, isShouting, false);
       }
     }
   }
@@ -395,7 +396,7 @@ function drawComicBubble(x, y, text, s, alpha, rot) {
   // 2. Main speech bubble + pointer tail toward Eren
   ctx.fillStyle = '#fffef2';
   ctx.strokeStyle = '#080608';
-  ctx.lineWidth = 1.6 * s;
+  ctx.lineWidth = 1.15 * s;
   traceRoundedRect(-hw, -8 * s, w, 16 * s, 5 * s);
   ctx.fill();
   ctx.stroke();

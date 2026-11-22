@@ -13,7 +13,7 @@ const REF_HEIGHT = 576;
 // Configurable Settings (customizable live via LivelyProperties.json)
 const config = {
   showEren: true,
-  erenScale: 1.15,
+  erenScale: 1.55,
   maxMagnetScale: 1.22,
   magnetRadius: 185,
   maxMagnetPull: 14,
@@ -87,7 +87,7 @@ window.livelyPropertyListener = function (name, val) {
       config.showEren = Boolean(val);
       break;
     case 'erenScale':
-      config.erenScale = Math.max(0.6, Math.min(2.0, Number(val) || 1.15));
+      config.erenScale = Math.max(0.4, Math.min(3.5, Number(val) || 1.55));
       break;
     case 'magnetStrength':
       config.maxMagnetScale = 1.0 + Math.max(0.05, Math.min(0.5, Number(val) || 0.22));
@@ -135,7 +135,7 @@ window.livelyAudioListener = function (audioArray) {
 // Example: ErenChibi.setScale(1.35); ErenChibi.setVisible(false);
 window.ErenChibi = {
   setScale: function (value) {
-    config.erenScale = Math.max(0.6, Math.min(2.0, Number(value) || 1.15));
+    config.erenScale = Math.max(0.4, Math.min(3.5, Number(value) || 1.55));
   },
   setVisible: function (value) {
     config.showEren = Boolean(value);

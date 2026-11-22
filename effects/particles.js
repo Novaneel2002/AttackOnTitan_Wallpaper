@@ -140,24 +140,7 @@ function drawClickEffects(s) {
   ctx.globalAlpha = alpha;
 
   if (!clickEffect.isErenClick) {
-    // Live position on clicked card
-    let tx = clickEffect.targetX;
-    let ty = clickEffect.targetY;
-    if (clickEffect.cardIdx >= 0) {
-      const c = cards[clickEffect.cardIdx];
-      const currentScale = c.scale * (1 + audioEnergy * 0.025);
-      tx = (c.cx + c.offsetX) + clickEffect.relX * (c.baseW * currentScale);
-      ty = (c.cy + c.offsetY) + clickEffect.relY * (c.baseH * currentScale);
-    }
-
-    const shootP = Math.min(1, clickEffect.timer / 0.14);
-    const handX = eren.handWorldX || eren.x;
-    const handY = eren.handWorldY || (eren.y - 12 * s);
-    const clickTau = clickEffect.timer - 0.14;
-    const clickWobble = clickTau > 0 ? 4 * uniformScale * Math.exp(-clickTau * 9) * Math.cos(clickTau * 42) : 0;
-    drawWebLine(handX, handY, tx, ty, shootP, alpha * 0.85, shootP < 1 ? 0.4 : 0.8, clickWobble, true);
-
-    // Comic "SHING!" badge near Eren with hard comic shadow & action ticks
+    // Comic "SHING!" badge near Eren with hard comic shadow & action ticks (cables are handled purely by ODM gear)
     const bx = eren.x + eren.facing * 24 * s;
     const by = eren.y - 32 * s - Math.min(1, progress * 3) * 5 * s;
     ctx.translate(bx, by);

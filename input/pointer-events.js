@@ -32,10 +32,6 @@ function activateLmbHold(clientX, clientY) {
   clickEffect.active = false; // Do not show "SHING!" when holding LMB
 
   if (config.showEren && eren.initialized) {
-    // If LMB is held while Eren is already mid-swing between two cards, attach them
-    if (eren.isSwinging && eren.originCard >= 0 && eren.originCard !== eren.currentCard && activeDragConnIdx < 0) {
-      startPhotoWebConnection(eren.originCard, eren.currentCard);
-    }
     hitTestCardAndQueue(clientX, clientY);
   }
 }

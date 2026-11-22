@@ -203,9 +203,6 @@ function releaseHook(i) {
   if (st === HK_FLYING) {
     startX = hx + (hkAx[i] - hx) * hkTip[i];
     startY = hy + (hkAy[i] - hy) * hkTip[i];
-  } else if (st === HK_ANCHORED) {
-    // Leave a small steel strike / nick mark where the hook was embedded
-    addWebTag(hkAx[i], hkAy[i], Math.atan2(hkAy[i] - hy, hkAx[i] - hx), hkCard[i], hkRelX[i], hkRelY[i]);
   }
 
   trActive[i] = 1;
@@ -264,8 +261,8 @@ function drawTrailingCables() {
     if (!trActive[i]) continue;
     const hx = hipPosX(i);
     const hy = hipPosY(i);
-    // Draw taut steel cable between hip reel and retracting hook head
-    drawWebLine(hx, hy, trHookX[i], trHookY[i], 1.0, 1.0, 1.0, 0, true);
+    // Draw taut steel cable between hip reel and retracting hook head (no lingering anchor mark)
+    drawWebLine(hx, hy, trHookX[i], trHookY[i], 1.0, 1.0, 1.0, 0, false);
   }
 }
 
@@ -305,7 +302,98 @@ function requestSwingToCard(targetCardIdx) {
     eren.facing = (targetX - eren.x) >= 0 ? 1 : -1;
     return;
   }
+  // If already mid-swing: retract one rope and re-shoot toward the new block (total stays 2)
+  if (eren.isSwinging) {
+    redirectSwingMidAir(targetCardIdx);
+    return;
+  }
   launchSwingNow(targetCardIdx, true);
+}
+
+function redirectSwingMidAir(targetCardIdx) {
+  if (targetCardIdx < 0 || targetCardIdx === eren.currentCard) return;
+  const us = uniformScale;
+
+  const previousCard = eren.currentCard;
+  eren.originCard = previousCard;
+  eren.currentCard = targetCardIdx;
+  eren.nextPerchMode = choosePerchModeForCard(targetCardIdx);
+
+  eren.idleTime = 0;
+  eren.sassyBlend = 0;
+  eren.sitBlend = 0;
+  eren.deepIdleBlend = 0;
+  eren.reactionBlend = 0;
+
+  const ex = getCardPerchX(targetCardIdx, eren.nextPerchMode);
+  const ey = getCardPerchY(targetCardIdx, eren.nextPerchMode);
+  eren.endX = ex;
+  eren.endY = ey;
+  eren.endIsCard = true;
+  odmTx = ex;
+  odmTy = ey;
+
+  const dx = ex - eren.x;
+  const dy = ey - eren.y;
+  const dist = Math.hypot(dx, dy);
+  odmJump = Math.max(60 * us, dist);
+  odmRise = Math.max(0, eren.y - ey);
+  if (Math.abs(dx) > 2) eren.facing = dx >= 0 ? 1 : -1;
+
+  // Gas burst redirecting momentum toward the new target
+  const bx = dx / Math.max(1, dist);
+  const by = dy / Math.max(1, dist) - 0.45;
+  const bl = Math.hypot(bx, by) || 1;
+  burstDX = (bx / bl) * 2200 * us;
+  burstDY = (by / bl) * 2200 * us;
+  burstT = 0.16 * Math.max(0.6, config.gasPower);
+  eren.thrustX = -bx / bl;
+  eren.thrustY = -by / bl;
+  eren.thrustT = 0.22;
+
+  eren.isSwinging = true;
+  eren.mode = MODE_SWING;
+  eren.swingDuration = Math.max(0.7, Math.min(1.2, dist / (400 * us)));
+  eren.swingElapsed = 0;
+  odmTotal = 0;
+
+  // Mid-air redirect: ONE of the two ropes retracts and shoots again,
+  // while the other maintains tension/momentum, keeping exactly 2 ropes total!
+  let hookToRetract = 0;
+  if (hkState[0] === HK_IDLE && hkState[1] !== HK_IDLE) {
+    hookToRetract = 0;
+  } else if (hkState[1] === HK_IDLE && hkState[0] !== HK_IDLE) {
+    hookToRetract = 1;
+  } else if (hkState[0] !== HK_IDLE && hkState[1] !== HK_IDLE) {
+    const d0 = Math.hypot(hkAx[0] - ex, hkAy[0] - ey);
+    const d1 = Math.hypot(hkAx[1] - ex, hkAy[1] - ey);
+    hookToRetract = (d0 >= d1) ? 0 : 1;
+  }
+
+  // 1. Retract this hook into the hip reel
+  releaseHook(hookToRetract);
+
+  // 2. Choose a new anchor for this hook towards the newly clicked card
+  const idealX = eren.x + dx * 0.55;
+  const highestY = Math.min(eren.y, ey);
+  const lift = Math.max(95 * us, Math.min(220 * us, dist * 0.38));
+  const idealY = Math.max(0, highestY - lift);
+
+  const otherHook = 1 - hookToRetract;
+  const avoidX = (hkState[otherHook] !== HK_IDLE) ? hkAx[otherHook] : -1e9;
+  const avoidY = (hkState[otherHook] !== HK_IDLE) ? hkAy[otherHook] : -1e9;
+  pickAnchor(idealX, idealY, eren.x, eren.y, ex, ey, -1, targetCardIdx, avoidX, avoidY);
+
+  // 3. Re-shoot this hook toward the new anchor!
+  setHook(hookToRetract, 0.08);
+
+  // 4. If the other hook was idle (e.g. was in ballistic mode), arm it as well with an offset
+  if (hkState[otherHook] === HK_IDLE && !trActive[otherHook]) {
+    const dir = dx >= 0 ? 1 : -1;
+    const off = Math.max(70 * us, Math.abs(dx) * 0.3);
+    pickAnchor(idealX + dir * off, idealY, eren.x, eren.y, ex, ey, -1, targetCardIdx, pkX, pkY);
+    setHook(otherHook, 0.14);
+  }
 }
 
 function launchSwingNow(targetCardIdx, carryVelocity) {
@@ -318,12 +406,6 @@ function launchSwingNow(targetCardIdx, carryVelocity) {
   eren.originCard = previousCard;
   eren.currentCard = targetCardIdx;
   eren.nextPerchMode = choosePerchModeForCard(targetCardIdx);
-
-  if (isLmbHeld) {
-    startPhotoWebConnection(previousCard, targetCardIdx);
-  } else if (activeDragConnIdx >= 0) {
-    finalizeActiveDragWeb();
-  }
 
   eren.idleTime = 0;
   eren.sassyBlend = 0;
@@ -459,7 +541,6 @@ function finishLanding() {
   e.deepIdleBlend = 0;
   e.thrustT = 0;
   e.bladeHold = 1.0; // blades stay drawn for 1s after landing
-  finalizeActiveDragWeb();
 
   if (e.perchMode === PERCH_BOTTOM_UPSIDE_DOWN) {
     spawnLandingImpact(e.x, e.y, 0, 1);
@@ -532,7 +613,13 @@ function odmStep(h) {
   if (e.mode === MODE_SWING) {
     for (let i = 0; i < 2; i++) {
       if (hkState[i] === HK_FLYING) {
-        if (hkDelay[i] > 0) { hkDelay[i] -= h; continue; }
+        if (hkDelay[i] > 0) {
+          hkDelay[i] -= h;
+          if (hkDelay[i] <= 0) {
+            trActive[i] = 0; // Retraction finished, now shooting!
+          }
+          continue;
+        }
         const len = Math.hypot(hkAx[i] - hipPosX(i), hkAy[i] - hipPosY(i)) + 1;
         hkTip[i] += (2500 * us * h) / len;
         if (hkTip[i] >= 1) {

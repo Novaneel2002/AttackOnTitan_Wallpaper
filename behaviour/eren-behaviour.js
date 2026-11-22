@@ -89,16 +89,7 @@ function updateEren(dt) {
   }
 
   if (clickEffect.active) {
-    const prevClickTimer = clickEffect.timer;
     clickEffect.timer += dt;
-    // Leave a lingering web tag where the click web stuck
-    if (!clickEffect.isErenClick && prevClickTimer < 0.14 && clickEffect.timer >= 0.14) {
-      addWebTag(
-        clickEffect.targetX, clickEffect.targetY,
-        Math.atan2(clickEffect.targetY - eren.handWorldY, clickEffect.targetX - eren.handWorldX),
-        clickEffect.cardIdx, clickEffect.relX, clickEffect.relY
-      );
-    }
     if (clickEffect.timer >= clickEffect.duration) {
       clickEffect.active = false;
     }
