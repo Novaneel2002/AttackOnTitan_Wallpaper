@@ -74,6 +74,16 @@ function triggerSingleClickAction(clickX, clickY) {
     clickEffect.active = true;
     clickEffect.timer = 0;
     clickEffect.isErenClick = true;
+    if (eren.erenClickCount === 3) {
+      clickEffect.text = 'YAMERO!!';
+      clickEffect.isAngry = true;
+    } else if (eren.erenClickCount === 4) {
+      clickEffect.text = 'OII!!';
+      clickEffect.isAngry = true;
+    } else {
+      clickEffect.text = 'TCH.';
+      clickEffect.isAngry = false;
+    }
     return;
   }
 
@@ -204,14 +214,22 @@ window.addEventListener('mouseleave', function () {
 
 document.addEventListener('visibilitychange', function () {
   isPageHidden = document.hidden;
-  if (!isPageHidden && !rafId) {
+  if (isPageHidden) {
+    if (rafId > 0) cancelAnimationFrame(rafId);
+    if (idleTimerId) clearTimeout(idleTimerId);
+    rafId = 0;
+    idleTimerId = 0;
+  } else {
     lastFrameTime = performance.now();
-    rafId = requestAnimationFrame(renderFrame);
+    bgDirty = true;
+    fxDirtyFull = true;
+    wakeNow();
   }
 });
 
 window.addEventListener('resize', function () {
-  handleResize();
+  handleResize(true);
+  scheduleCardCacheRebuild();
   wakeNow();
 }, { passive: true });
 

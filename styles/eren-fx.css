@@ -16,22 +16,23 @@ body {
   -webkit-user-select: none;
 }
 
+#cardsCanvas,
 #wallpaperCanvas {
+  position: fixed;
+  inset: 0;
   display: block;
   width: 100vw;
   height: 100vh;
-  background-color: #000000;
   image-rendering: auto;
-  /* Crisp comic contrast & subtle Spider-Verse vibrancy */
-  filter: contrast(1.03) saturate(1.06);
-  will-change: transform;
 }
 
-/* Hidden SVG filter defs container */
-#spideySvgDefs {
-  position: absolute;
-  width: 0;
-  height: 0;
+#cardsCanvas {
+  background-color: #000000;
+  z-index: 0;
+}
+
+#wallpaperCanvas {
+  background-color: transparent;
+  z-index: 1;
   pointer-events: none;
-  overflow: hidden;
 }

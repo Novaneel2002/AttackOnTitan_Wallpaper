@@ -13,6 +13,24 @@
  *   6. Deep Idle 3: Sitting on an ODM cable swing (holding cables, swaying gently like a playground swing)
  */
 
+function getReactionExpression() {
+  if (eren.reactionBlend < 0.15) return null;
+  switch (eren.reactionCode) {
+    case REACT_ERWIN: return 'heroic';
+    case REACT_FLOCH: return 'fierce';
+    case REACT_MIKASA: return 'soft';
+    case REACT_PIECK: return 'smirk';
+    case REACT_ARMIN: return 'hopeful';
+    case REACT_EREN: return 'angry';
+    case REACT_SASHA: return 'happy';
+    case REACT_ANNIE: return 'shocked';
+    case REACT_REINER: return 'cold';
+    case REACT_LEVI: return 'nervous';
+    case REACT_YMIR: return 'serene';
+    default: return null;
+  }
+}
+
 function isShowingAttackTitan() {
   return eren.titanState === TITAN_ACTIVE ||
     (eren.titanState === TITAN_TRANSFORMING && eren.titanTransTimer >= 0.35) ||
@@ -311,11 +329,12 @@ function drawEren() {
         }
 
         // Head
+        const sitExpr = getReactionExpression();
         eren.headRot = 0;
         eren.headFlipY = 1;
         eren.headWorldX = worldOriginX;
         eren.headWorldY = worldOriginY - 23.0 * s + breath;
-        drawErenHead(0, -23.0 * s + breath, s, eren.facingScale, eren.cursorNear, false, false);
+        drawErenHead(0, -23.0 * s + breath, s, eren.facingScale, eren.cursorNear, false, false, false, sitExpr);
 
       } else {
         // Standing perch (Iconic TATAKAE! Clenched Fist Pose from Reference Image 1)
@@ -339,6 +358,8 @@ function drawEren() {
         drawErenTorso(0, -11.5 * s + breath, 11.4 * s, 10.5 * s, s, ink);
         drawOdmGear(0, -7.0 * s + breath, s, ink, dir, 0);
 
+        const reactExpr = isAngryBitePose ? 'angry' : getReactionExpression();
+
         if (isAngryBitePose) {
           // 3rd & 4th Click Warning Pose: Angry Eren holding his hand directly in front of his mouth!
           // Left arm clenched tightly at his side
@@ -350,6 +371,18 @@ function drawEren() {
           drawOutlinedSegment(leftElbowX, leftElbowY, leftHandX, leftHandY, 3.4 * s, '#fee4d2', ink);
           drawWingsOfFreedom(leftElbowX - 0.5 * s, leftElbowY - 1.2 * s, 3.4 * s);
           drawErenHand(leftHandX, leftHandY, s, ink, 'fist', -1);
+
+        } else if (reactExpr === 'heroic') {
+          // Commander Erwin Reaction: Iconic "Shinzou wo Sasageyo!" Scout salute (right fist over heart!)
+          drawOutlinedSegment(4.5 * s, -14.5 * s + breath, 7.6 * s, -11.2 * s + breath, 3.6 * s, '#be8650', ink);
+          drawOutlinedSegment(7.6 * s, -11.2 * s + breath, -2.2 * s, -12.6 * s + breath, 3.4 * s, '#be8650', ink);
+          drawErenHand(-2.2 * s, -12.6 * s + breath, s, ink, 'fist', -1);
+
+          // Left arm straight behind back
+          const leftElbowX = -6.4 * s;
+          const leftElbowY = -10.2 * s + breath;
+          drawOutlinedSegment(-4.5 * s, -14.5 * s + breath, leftElbowX, leftElbowY, 3.6 * s, '#be8650', ink);
+          drawWingsOfFreedom(leftElbowX - 0.4 * s, leftElbowY - 1.2 * s, 3.4 * s);
 
         } else if (isBladesDrawn) {
           // Combat ready stance right after landing: both blades held defensively
@@ -387,13 +420,13 @@ function drawEren() {
           drawErenHand(leftHandX, leftHandY, s, ink, 'fist', -1);
         }
 
-        // Head (Angry open biting mouth at 3rd+ click, or shouting during combat/click, else fierce glare)
-        const isShouting = (isAngryBitePose || eren.bladeHold > 0 || (typeof clickEffect !== 'undefined' && clickEffect.active) || eren.reactionBlend > 0.05);
+        // Head (Expression dynamically matches each card reaction, or angry bite pose at 3rd+ click)
+        const isShouting = (isAngryBitePose || eren.bladeHold > 0 || (typeof clickEffect !== 'undefined' && clickEffect.active));
         eren.headRot = 0;
         eren.headFlipY = 1;
         eren.headWorldX = worldOriginX;
         eren.headWorldY = worldOriginY - 25.5 * s + breath;
-        drawErenHead(0, -25.5 * s + breath, s, eren.facingScale, isAngryBitePose ? 0.45 : eren.cursorNear, isShouting, false, isAngryBitePose);
+        drawErenHead(0, -25.5 * s + breath, s, eren.facingScale, isAngryBitePose ? 0.45 : eren.cursorNear, isShouting, false, isAngryBitePose, reactExpr);
 
         if (isAngryBitePose) {
           // Anime anger vein mark on forehead/temple
@@ -431,64 +464,4 @@ function drawEren() {
   drawCardReaction(s);
   drawClickEffects(s);
   drawTitanEffects();
-}
-
-/**
- * Comic speech bubble with hard offset shadow and speech pointer tail.
- */
-function drawComicBubble(x, y, text, s, alpha, rot) {
-  if (alpha <= 0.02) return;
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.translate(x, y);
-  ctx.rotate(rot);
-  const w = text.length * 5.2 * s + 12 * s;
-  const hw = w * 0.5;
-  const tailDir = -eren.facing;
-
-  // 1. Hard comic offset shadow
-  ctx.fillStyle = '#080608';
-  traceRoundedRect(-hw + 1.8 * s, -8 * s + 2.0 * s, w, 16 * s, 5 * s);
-  ctx.fill();
-
-  // 2. Main speech bubble + pointer tail toward Eren
-  ctx.fillStyle = '#fffef2';
-  ctx.strokeStyle = '#080608';
-  ctx.lineWidth = 1.15 * s;
-  traceRoundedRect(-hw, -8 * s, w, 16 * s, 5 * s);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(tailDir * 4.5 * s, 7.2 * s);
-  ctx.lineTo(tailDir * 9.5 * s, 12.5 * s);
-  ctx.lineTo(tailDir * 1.0 * s, 7.2 * s);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  // 3. Bold comic lettering
-  ctx.fillStyle = '#1c2e4a';
-  ctx.font = '900 ' + Math.round(8.5 * s) + 'px Impact, Arial Black, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, 0, 0.5 * s);
-  ctx.restore();
-}
-
-/**
- * Mini-reactions when hovering cards or clicking Eren
- */
-function drawCardReaction(s) {
-  const a = eren.reactionBlend;
-  if (a < 0.03 || eren.isSwinging || !eren.headWorldX) return;
-  const hx = eren.headWorldX;
-  const hy = eren.headWorldY;
-  const f = eren.facing;
-  const pop = Math.min(1, a * 1.3);
-  const bx = hx + f * 24 * s;
-  const by = hy - 20 * s - (1 - pop) * 6 * s;
-
-  // Default energetic Eren reaction
-  drawComicBubble(bx, by, 'TATAKAE!', s, a, -0.1 * f);
 }

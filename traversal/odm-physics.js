@@ -5,6 +5,7 @@
  * fires, reels, releases onto a ballistic arc and lands exactly on the perch point.
  */
 const ODM_STEP = 1 / 120;
+const ODM_DRAG = Math.exp(-0.25 * ODM_STEP);
 const HK_IDLE = 0;
 const HK_FLYING = 1;
 const HK_ANCHORED = 2;
@@ -604,9 +605,8 @@ function odmStep(h) {
     }
   }
 
-  const dk = Math.exp(-0.25 * h);
-  e.vx *= dk;
-  e.vy *= dk;
+  e.vx *= ODM_DRAG;
+  e.vy *= ODM_DRAG;
   e.x += e.vx * h;
   e.y += e.vy * h;
 
@@ -634,10 +634,12 @@ function odmStep(h) {
       }
     }
     // Scheduled winches: each cable is reeled / paid out toward the exact length that ends at the
-    // perch point, following the swing progress (variable-length pendulum, rate-limited spool)
+    // perch point, combining angular progress with a time floor so vertical drops never deadlock
     const prog = swingProgress();
-    const sm = prog * prog * (3 - 2 * prog);
-    const spool = 700 * us * config.cableSpeed * h;
+    const timeProg = Math.min(1, e.swingElapsed / Math.max(0.26, Math.min(0.58, odmJump / (700 * us))));
+    const wProg = Math.max(prog, timeProg);
+    const sm = wProg * wProg * (3 - 2 * wProg);
+    const spool = 950 * us * config.cableSpeed * h;
     for (let i = 0; i < 2; i++) {
       if (hkState[i] !== HK_ANCHORED) continue;
       const lEnd = Math.hypot(odmTx - hkAx[i], odmTy - hkAy[i]) + (i === 1 ? 0.04 * odmJump : 0);
@@ -692,14 +694,20 @@ function odmStep(h) {
     const dist = Math.hypot(odmTx - e.x, odmTy - e.y);
     const prog = swingProgress();
     if (e.swingElapsed > 0.1) {
-      if (prog >= 0.88 || dist < 30 * us) {
-        const sp = Math.hypot(e.vx, e.vy);
-        releaseToBallistic(Math.max(0.15, Math.min(0.45, dist / Math.max(sp, 200 * us))));
+      const sp = Math.hypot(e.vx, e.vy);
+      const isSteepDrop = (odmTy - e.y) > 70 * us && Math.abs(odmTx - e.x) < (odmTy - e.y) * 0.45;
+      if (prog >= 0.88 || dist < 30 * us || (isSteepDrop && e.swingElapsed > 0.16)) {
+        releaseToBallistic(Math.max(0.15, Math.min(0.42, dist / Math.max(sp, 350 * us))));
+        return false;
+      }
+      if (e.swingElapsed > 0.35 && sp < 45 * us) {
+        // Anti-stall guard: if trapped between opposing cables, release cleanly into a guided dive
+        releaseToBallistic(Math.max(0.18, Math.min(0.45, dist / (750 * us))));
         return false;
       }
       if (prog > 0.35 && (++odmCheck % 3) === 0 && tryPredictRelease()) return false;
     }
-    if (e.swingElapsed > 0.9 && odmChain < 2 && dist > 140 * us) {
+    if (e.swingElapsed > 0.85 && odmChain < 2 && dist > 140 * us) {
       // Prediction failed: let go and re-fire the next anchor mid-air
       odmChain++;
       releaseAllHooks(0.9);
@@ -708,9 +716,9 @@ function odmStep(h) {
       odmJump = Math.max(60 * us, dist);
       return false;
     }
-    if (odmTotal > 1.7) {
+    if (odmTotal > 1.25) {
       // Timeout: force a guided finish so there is never an endless swing
-      releaseToBallistic(Math.max(0.18, Math.min(0.5, dist / (900 * us))));
+      releaseToBallistic(Math.max(0.18, Math.min(0.45, dist / (900 * us))));
     }
   }
   return false;

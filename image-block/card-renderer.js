@@ -65,7 +65,10 @@ function rebuildCardCache(card) {
   cCtx.imageSmoothingEnabled = true;
   cCtx.imageSmoothingQuality = 'high';
   if (card.hasImage) {
+    // Bake subtle comic vibrancy once into the cached bitmap (avoids per-frame full-screen CSS filter)
+    if ('filter' in cCtx) cCtx.filter = 'contrast(1.03) saturate(1.06)';
     cCtx.drawImage(card.img, card.sx, card.sy, card.sw, card.sh, 0, 0, targetW, targetH);
+    if ('filter' in cCtx) cCtx.filter = 'none';
   } else {
     cCtx.fillStyle = '#f2f2f2';
     cCtx.fillRect(0, 0, targetW, targetH);
@@ -113,29 +116,26 @@ function sortDrawOrderByScale() {
 }
 
 /**
- * Traces a rounded rectangle path onto the 2D context without allocations.
+ * Traces a rounded rectangle path onto a 2D context (defaults to `ctx`) without allocations.
  */
-function traceRoundedRect(x, y, w, h, r) {
+function traceRoundedRect(x, y, w, h, r, targetCtx) {
+  const c = targetCtx || ctx;
   const radius = Math.min(r, w * 0.5, h * 0.5);
-  ctx.beginPath();
-  if (typeof ctx.roundRect === 'function') {
-    ctx.roundRect(x, y, w, h, radius);
+  c.beginPath();
+  if (typeof c.roundRect === 'function') {
+    c.roundRect(x, y, w, h, radius);
   } else {
-    ctx.moveTo(x + radius, y);
-    ctx.arcTo(x + w, y, x + w, y + h, radius);
-    ctx.arcTo(x + w, y + h, x, y + h, radius);
-    ctx.arcTo(x, y + h, x, y, radius);
-    ctx.arcTo(x, y, x + w, y, radius);
-    ctx.closePath();
+    c.moveTo(x + radius, y);
+    c.arcTo(x + w, y, x + w, y + h, radius);
+    c.arcTo(x + w, y + h, x, y + h, radius);
+    c.arcTo(x, y + h, x, y, radius);
+    c.arcTo(x, y, x + w, y, radius);
+    c.closePath();
   }
 }
 
 /**
- * Renders a single rounded-rectangle Eren image card with:
- * - Smooth 400ms fade + scale-in on initial load
- * - Soft depth drop shadow & subtle rim highlight when magnetically focused
- * - Inner window parallax shift toward the cursor
- * - Pre-rendered risograph/film-grain texture overlay
+ * Renders a single rounded-rectangle image card onto the dedicated background layer (`bgCtx`).
  */
 function drawCard(card) {
   if (!card.loaded) return;
@@ -157,50 +157,51 @@ function drawCard(card) {
 
   // Fast path for resting, fully-loaded cards: single hardware-accelerated blit with zero state changes or stencil clips
   if (isLoadedFully && focusRatio <= 0.02 && card.cacheCanvas) {
-    ctx.drawImage(card.cacheCanvas, drawX, drawY, drawW, drawH);
+    bgCtx.drawImage(card.cacheCanvas, drawX, drawY, drawW, drawH);
     return;
   }
 
   const drawRadius = card.baseRadius * currentScale;
-  ctx.save();
-  ctx.globalAlpha = loadEase;
+  bgCtx.save();
+  bgCtx.globalAlpha = loadEase;
 
   // 1. Soft elevation drop shadow beneath focused cards
   if (focusRatio > 0.02) {
-    ctx.save();
-    ctx.globalAlpha = loadEase * focusRatio * 0.55;
-    ctx.fillStyle = '#000000';
+    bgCtx.save();
+    bgCtx.globalAlpha = loadEase * focusRatio * 0.55;
+    bgCtx.fillStyle = '#000000';
     const pad = 6 * focusRatio * uniformScale;
     traceRoundedRect(
       drawX - pad * 0.5,
       drawY + (4 + 8 * focusRatio) * uniformScale,
       drawW + pad,
       drawH + pad,
-      drawRadius + 2 * uniformScale
+      drawRadius + 2 * uniformScale,
+      bgCtx
     );
-    ctx.fill();
-    ctx.restore();
+    bgCtx.fill();
+    bgCtx.restore();
   }
 
   // 2. Draw from pre-clipped offscreen cache (or fallback clip if cache not built yet)
   if (card.cacheCanvas) {
-    ctx.drawImage(card.cacheCanvas, drawX, drawY, drawW, drawH);
+    bgCtx.drawImage(card.cacheCanvas, drawX, drawY, drawW, drawH);
   } else {
-    traceRoundedRect(drawX, drawY, drawW, drawH, drawRadius);
-    ctx.save();
-    ctx.clip();
-    ctx.drawImage(card.img, card.sx, card.sy, card.sw, card.sh, drawX, drawY, drawW, drawH);
-    ctx.restore();
+    traceRoundedRect(drawX, drawY, drawW, drawH, drawRadius, bgCtx);
+    bgCtx.save();
+    bgCtx.clip();
+    bgCtx.drawImage(card.img, card.sx, card.sy, card.sw, card.sh, drawX, drawY, drawW, drawH);
+    bgCtx.restore();
   }
 
   // 3. Subtle rim light on enlarged cards for clean overlap separation
   if (focusRatio > 0.03) {
-    ctx.globalAlpha = loadEase * focusRatio * 0.38;
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = Math.max(1.0, 1.35 * uniformScale);
-    traceRoundedRect(drawX + 0.5, drawY + 0.5, drawW - 1, drawH - 1, drawRadius);
-    ctx.stroke();
+    bgCtx.globalAlpha = loadEase * focusRatio * 0.38;
+    bgCtx.strokeStyle = '#ffffff';
+    bgCtx.lineWidth = Math.max(1.0, 1.35 * uniformScale);
+    traceRoundedRect(drawX + 0.5, drawY + 0.5, drawW - 1, drawH - 1, drawRadius, bgCtx);
+    bgCtx.stroke();
   }
 
-  ctx.restore();
+  bgCtx.restore();
 }

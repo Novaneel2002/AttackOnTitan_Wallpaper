@@ -11,8 +11,23 @@
  * - Rampage poses on current card: Punching, Kicking, Jumping/Stomping, and Roaring
  */
 
+let cachedTitanEyeScale = -1;
+let cachedTitanEyeGrad = null;
+
+function getTitanEyeGradient(s) {
+  if (cachedTitanEyeScale !== s || !cachedTitanEyeGrad) {
+    cachedTitanEyeScale = s;
+    const g = ctx.createRadialGradient(0, 0, 0.3 * s, 0, 0, 2.5 * s);
+    g.addColorStop(0.0, '#ccffea');
+    g.addColorStop(0.35, '#42f5ad');
+    g.addColorStop(0.75, '#12a366');
+    g.addColorStop(1.0, 'rgba(12, 95, 58, 0.0)');
+    cachedTitanEyeGrad = g;
+  }
+  return cachedTitanEyeGrad;
+}
+
 function drawTitanSegment(x1, y1, x2, y2, thickness, fill, inkWidth) {
-  ctx.save();
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   if (inkWidth > 0) {
@@ -29,7 +44,6 @@ function drawTitanSegment(x1, y1, x2, y2, thickness, fill, inkWidth) {
   ctx.moveTo(x1, y1);
   ctx.lineTo(x2, y2);
   ctx.stroke();
-  ctx.restore();
 }
 
 /**
@@ -309,18 +323,15 @@ function drawTitanHead(cx, cy, s, isRoaring) {
     ctx.ellipse(ex, eyeY + 0.15 * s, 3.1 * s, 2.3 * s, side * -0.18, 0, Math.PI * 2);
     ctx.fill();
 
-    // Glowing emerald-green Titan eye (does NOT follow mouse — stares fiercely!)
+    // Glowing emerald-green Titan eye (cached gradient, stares fiercely!)
     const gx = ex - side * 0.2 * s;
     const gy = eyeY + 0.2 * s;
-    const eyeGrad = ctx.createRadialGradient(gx, gy, 0.3 * s, gx, gy, 2.5 * s);
-    eyeGrad.addColorStop(0.0, '#ccffea');
-    eyeGrad.addColorStop(0.35, '#42f5ad');
-    eyeGrad.addColorStop(0.75, '#12a366');
-    eyeGrad.addColorStop(1.0, 'rgba(12, 95, 58, 0.0)');
-    ctx.fillStyle = eyeGrad;
+    ctx.translate(gx, gy);
+    ctx.fillStyle = getTitanEyeGradient(s);
     ctx.beginPath();
-    ctx.arc(gx, gy, 2.5 * s, 0, Math.PI * 2);
+    ctx.arc(0, 0, 2.5 * s, 0, Math.PI * 2);
     ctx.fill();
+    ctx.translate(-gx, -gy);
 
     // Crisp bright emerald iris disc
     ctx.fillStyle = '#52ffba';

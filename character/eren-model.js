@@ -13,8 +13,36 @@
  * - 3D Maneuver Gear (ODM Gear): Hip scabbards, dual gas canisters with brass valves, back turbine drum, segmented snap-blades
  */
 
+// Cached radial gradients for Eren's iris (rebuilt only when scale/radius changes)
+let cachedIrisScale = -1;
+let cachedIrisRadius = -1;
+let cachedIrisGradNormal = null;
+let cachedIrisGradAngry = null;
+
+function getErenIrisGradient(s, irisR, isAngryOrFierce) {
+  if (cachedIrisScale !== s || cachedIrisRadius !== irisR || !cachedIrisGradNormal) {
+    cachedIrisScale = s;
+    cachedIrisRadius = irisR;
+
+    const gNorm = ctx.createRadialGradient(0, -1.0 * s, 0.35 * s, 0, 0, irisR);
+    gNorm.addColorStop(0.0, '#98fae2');
+    gNorm.addColorStop(0.35, '#38dfb4');
+    gNorm.addColorStop(0.65, '#168a6d');
+    gNorm.addColorStop(0.9, '#0e4a3b');
+    gNorm.addColorStop(1.0, '#092119');
+    cachedIrisGradNormal = gNorm;
+
+    const gAngry = ctx.createRadialGradient(0, -1.0 * s, 0.35 * s, 0, 0, irisR);
+    gAngry.addColorStop(0.0, '#c8ffee');
+    gAngry.addColorStop(0.38, '#3ef5b8');
+    gAngry.addColorStop(0.72, '#11966a');
+    gAngry.addColorStop(1.0, '#072b20');
+    cachedIrisGradAngry = gAngry;
+  }
+  return isAngryOrFierce ? cachedIrisGradAngry : cachedIrisGradNormal;
+}
+
 function drawOutlinedSegment(x1, y1, x2, y2, thickness, fill, inkWidth) {
-  ctx.save();
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   if (inkWidth > 0) {
@@ -31,7 +59,6 @@ function drawOutlinedSegment(x1, y1, x2, y2, thickness, fill, inkWidth) {
   ctx.moveTo(x1, y1);
   ctx.lineTo(x2, y2);
   ctx.stroke();
-  ctx.restore();
 }
 
 /**
@@ -275,39 +302,6 @@ function drawWingsOfFreedom(cx, cy, size) {
   ctx.closePath();
   ctx.fill();
 
-  ctx.restore();
-}
-
-/**
- * Draws the Training Corps crossed swords badge (alternative badge)
- */
-function drawTrainingCorpsBadge(cx, cy, size) {
-  ctx.save();
-  ctx.translate(cx, cy);
-
-  // Shield base
-  ctx.fillStyle = '#34383e';
-  ctx.strokeStyle = '#d6d1c7';
-  ctx.lineWidth = Math.max(0.6, size * 0.14);
-  ctx.beginPath();
-  ctx.moveTo(-size * 0.5, -size * 0.6);
-  ctx.lineTo(size * 0.5, -size * 0.6);
-  ctx.lineTo(size * 0.5, size * 0.2);
-  ctx.lineTo(0, size * 0.75);
-  ctx.lineTo(-size * 0.5, size * 0.2);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  // Crossed silver swords
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = Math.max(0.6, size * 0.18);
-  ctx.beginPath();
-  ctx.moveTo(-size * 0.32, -size * 0.4);
-  ctx.lineTo(size * 0.32, size * 0.45);
-  ctx.moveTo(size * 0.32, -size * 0.4);
-  ctx.lineTo(-size * 0.32, size * 0.45);
-  ctx.stroke();
   ctx.restore();
 }
 
@@ -651,11 +645,22 @@ function drawSurveyCorpsCloak(backX, backY, s, ink, facing, windBlend, speed, is
  * - Determined angled eyebrows with inner furrow crease (signature Eren resolve!)
  * - Open battle cry shouting mouth with teeth & tongue (TATAKAE!) or fierce clenched glare
  */
-function drawErenHead(cx, cy, s, facingScale, squint, isShouting, isSleepy, isAngry) {
+function drawErenHead(cx, cy, s, facingScale, squint, isShouting, isSleepy, isAngry, expr) {
   ctx.save();
   ctx.translate(cx, cy);
 
   const ink = Math.max(0.65, 0.75 * s);
+  const angry = Boolean(isAngry || expr === 'angry');
+  const happy = expr === 'happy';
+  const soft = expr === 'soft';
+  const shocked = expr === 'shocked';
+  const cold = expr === 'cold';
+  const nervous = expr === 'nervous';
+  const smirk = expr === 'smirk';
+  const hopeful = expr === 'hopeful';
+  const heroic = expr === 'heroic';
+  const fierce = expr === 'fierce';
+  const serene = expr === 'serene';
 
   // =========================================================================
   // 1. BACK HAIR LAYER (Behind face and ears, giving head full volume)
@@ -725,11 +730,11 @@ function drawErenHead(cx, cy, s, facingScale, squint, isShouting, isSleepy, isAn
   ctx.fill();
   ctx.stroke();
 
-  // Soft peachy cheek blush
-  ctx.fillStyle = 'rgba(255, 115, 95, 0.22)';
+  // Soft peachy cheek blush (extra rosy when reacting to Mikasa or Sasha!)
+  ctx.fillStyle = (soft || happy) ? 'rgba(255, 95, 110, 0.40)' : 'rgba(255, 115, 95, 0.22)';
   ctx.beginPath();
-  ctx.ellipse(-5.8 * s, 4.4 * s, 3.0 * s, 1.6 * s, 0, 0, Math.PI * 2);
-  ctx.ellipse(5.8 * s, 4.4 * s, 3.0 * s, 1.6 * s, 0, 0, Math.PI * 2);
+  ctx.ellipse(-5.8 * s, 4.4 * s, (soft || happy ? 3.5 : 3.0) * s, (soft || happy ? 1.9 : 1.6) * s, 0, 0, Math.PI * 2);
+  ctx.ellipse(5.8 * s, 4.4 * s, (soft || happy ? 3.5 : 3.0) * s, (soft || happy ? 1.9 : 1.6) * s, 0, 0, Math.PI * 2);
   ctx.fill();
 
   // Subtle anime nose dot
@@ -760,7 +765,18 @@ function drawErenHead(cx, cy, s, facingScale, squint, isShouting, isSleepy, isAn
       continue;
     }
 
-    if (eren.isBlinking) {
+    if (happy) {
+      // Joyful ^ ^ curved smiling anime eyes (Sasha - MEAT!!)
+      ctx.strokeStyle = '#120d0a';
+      ctx.lineWidth = 1.65 * s;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.arc(ex, eyeY + 2.0 * s, 3.3 * s, 1.15 * Math.PI, 1.85 * Math.PI);
+      ctx.stroke();
+      continue;
+    }
+
+    if (eren.isBlinking && !shocked && !angry) {
       // Smooth eyelid blinking progression
       const bp = eren.blinkProgress;
       const lidY = eyeY - eyeH * 0.45 + bp * eyeH;
@@ -777,7 +793,7 @@ function drawErenHead(cx, cy, s, facingScale, squint, isShouting, isSleepy, isAn
     // Eye white (sclera)
     ctx.save();
     ctx.beginPath();
-    if (isAngry) {
+    if (angry) {
       // Sharply slanted angry glare silhouette (\  / angled down toward nose bridge)
       const innerY = eyeY - eyeH * 0.08;
       const outerY = eyeY - eyeH * 0.56;
@@ -787,6 +803,30 @@ function drawErenHead(cx, cy, s, facingScale, squint, isShouting, isSleepy, isAn
       ctx.quadraticCurveTo(ex + side * eyeW * 0.92, botY, ex, botY + 0.3 * s);
       ctx.quadraticCurveTo(ex - side * eyeW * 0.88, botY, ex - side * eyeW * 1.02, innerY);
       ctx.closePath();
+    } else if (cold) {
+      // Season 4 dead-serious half-lidded stare (Reiner - SIT DOWN, REINER.)
+      const topLidY = eyeY - eyeH * 0.12;
+      const botY = eyeY + eyeH * 0.58;
+      ctx.moveTo(ex - eyeW * 1.05, topLidY);
+      ctx.lineTo(ex + eyeW * 1.05, topLidY);
+      ctx.quadraticCurveTo(ex + eyeW * 0.9, botY, ex, botY + 0.2 * s);
+      ctx.quadraticCurveTo(ex - eyeW * 0.9, botY, ex - eyeW * 1.05, topLidY);
+      ctx.closePath();
+    } else if (serene) {
+      // Calm, compassionate gently lowered lids (Ymir - YOU ARE FREE.)
+      const topLidY = eyeY - eyeH * 0.28;
+      const botY = eyeY + eyeH * 0.56;
+      ctx.moveTo(ex - eyeW * 1.02, topLidY);
+      ctx.quadraticCurveTo(ex, topLidY - 0.8 * s, ex + eyeW * 1.02, topLidY);
+      ctx.quadraticCurveTo(ex + eyeW * 0.9, botY, ex, botY + 0.2 * s);
+      ctx.quadraticCurveTo(ex - eyeW * 0.9, botY, ex - eyeW * 1.02, topLidY);
+      ctx.closePath();
+    } else if (shocked || nervous) {
+      // Extra-wide startled eyes (Annie / Levi)
+      ctx.ellipse(ex, eyeY, eyeW * 1.08, eyeH * 1.06, 0, 0, Math.PI * 2);
+    } else if (smirk) {
+      // Confident slightly narrowed eyes (Pieck)
+      ctx.ellipse(ex, eyeY + 0.2 * s, eyeW * 1.0, eyeH * 0.78, 0, 0, Math.PI * 2);
     } else {
       ctx.ellipse(ex, eyeY, eyeW, eyeH * (1 - squint * 0.35), 0, 0, Math.PI * 2);
     }
@@ -796,55 +836,47 @@ function drawErenHead(cx, cy, s, facingScale, squint, isShouting, isSleepy, isAn
     ctx.fillStyle = '#ffffff';
     ctx.fill();
 
-    // Upper eyeball shadow (much heavier & darker when angry)
-    ctx.fillStyle = isAngry ? 'rgba(28, 34, 42, 0.38)' : '#d9e2ec';
+    // Upper eyeball shadow (heavier when angry or cold)
+    ctx.fillStyle = (angry || cold) ? 'rgba(28, 34, 42, 0.38)' : '#d9e2ec';
     ctx.beginPath();
-    ctx.ellipse(ex, eyeY - eyeH * (isAngry ? 0.22 : 0.35), eyeW * 1.1, eyeH * 0.52, 0, 0, Math.PI * 2);
+    ctx.ellipse(ex, eyeY - eyeH * (angry || cold ? 0.20 : 0.35), eyeW * 1.1, eyeH * 0.52, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Iris (Vibrant Attack on Titan emerald-teal gradient; intense glowing Titan-green when angry!)
+    // Iris (Vibrant Attack on Titan emerald-teal gradient)
     const lookOffX = (eren.lookX || 0) * 1.35 * s;
     const lookOffY = (eren.lookY || 0) * 0.85 * s;
-    const irisX = ex + lookOffX;
-    const irisY = eyeY + lookOffY + (isAngry ? 0.45 * s : 0);
-    const irisR = (isAngry ? 2.85 : 3.4) * s;
+    const jitterX = nervous ? Math.sin(elapsedTime * 55 + side) * 0.45 * s : 0;
+    const irisX = ex + lookOffX + jitterX;
+    const irisY = eyeY + lookOffY + (angry || cold ? 0.45 * s : 0);
+    const irisR = (shocked || nervous ? 2.4 : (angry ? 2.85 : (hopeful || heroic || soft ? 3.55 : 3.4))) * s;
 
-    // Multi-stop rich emerald gradient
-    const grad = ctx.createRadialGradient(irisX, irisY - 1.0 * s, 0.35 * s, irisX, irisY, irisR);
-    if (isAngry) {
-      grad.addColorStop(0.0, '#c8ffee');  // fierce glowing Titan-green core
-      grad.addColorStop(0.38, '#3ef5b8'); // electric emerald
-      grad.addColorStop(0.72, '#11966a'); // deep vivid emerald
-      grad.addColorStop(1.0, '#072b20');  // razor-dark rim
-    } else {
-      grad.addColorStop(0.0, '#98fae2');  // bright glowing center
-      grad.addColorStop(0.35, '#38dfb4'); // vivid turquoise
-      grad.addColorStop(0.65, '#168a6d'); // rich emerald
-      grad.addColorStop(0.9, '#0e4a3b');  // deep hunter teal
-      grad.addColorStop(1.0, '#092119');  // dark shadow rim
-    }
-    ctx.fillStyle = grad;
+    // Multi-stop rich emerald gradient (cached, zero per-frame allocation)
+    ctx.translate(irisX, irisY);
+    ctx.fillStyle = getErenIrisGradient(s, irisR, angry || fierce);
     ctx.beginPath();
-    ctx.arc(irisX, irisY, irisR, 0, Math.PI * 2);
+    ctx.arc(0, 0, irisR, 0, Math.PI * 2);
     ctx.fill();
+    ctx.translate(-irisX, -irisY);
 
-    // Dark charcoal-black pupil (constricted intense pinpoint when angry!)
+    // Dark charcoal-black pupil
     ctx.fillStyle = '#06120e';
     ctx.beginPath();
-    if (isAngry) {
+    if (shocked || nervous) {
+      ctx.arc(irisX, irisY, 0.72 * s, 0, Math.PI * 2);
+    } else if (angry) {
       ctx.ellipse(irisX, irisY, 0.9 * s, 1.15 * s, 0, 0, Math.PI * 2);
     } else {
       ctx.ellipse(irisX, irisY, 1.4 * s, 1.7 * s, 0, 0, Math.PI * 2);
     }
     ctx.fill();
 
-    if (isAngry) {
-      // Single sharp piercing glint (no cute oversized sparkles)
+    if (angry || cold) {
+      // Single sharp piercing glint
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
       ctx.arc(irisX - 0.85 * s, irisY - 0.75 * s, 0.65 * s, 0, Math.PI * 2);
       ctx.fill();
-    } else {
+    } else if (!shocked && !nervous) {
       // Lower-right crescent reflection shine
       ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
       ctx.beginPath();
@@ -854,12 +886,12 @@ function drawErenHead(cx, cy, s, facingScale, squint, isShouting, isSleepy, isAn
       // Secondary crisp white sparkle catchlight (lower-right)
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(irisX + 0.9 * s, irisY + 0.9 * s, 0.65 * s, 0, Math.PI * 2);
+      ctx.arc(irisX + 0.9 * s, irisY + 0.9 * s, (hopeful || heroic ? 0.85 : 0.65) * s, 0, Math.PI * 2);
       ctx.fill();
 
       // Primary bright white circular catchlight (top-left)
       ctx.beginPath();
-      ctx.arc(irisX - 1.2 * s, irisY - 1.1 * s, 1.15 * s, 0, Math.PI * 2);
+      ctx.arc(irisX - 1.2 * s, irisY - 1.1 * s, (hopeful || heroic || soft ? 1.35 : 1.15) * s, 0, Math.PI * 2);
       ctx.fill();
     }
 
@@ -867,13 +899,18 @@ function drawErenHead(cx, cy, s, facingScale, squint, isShouting, isSleepy, isAn
 
     // Heavy bold black upper lash line
     ctx.strokeStyle = '#120d0a';
-    ctx.lineWidth = (isAngry ? 1.75 : 1.45) * s;
+    ctx.lineWidth = (angry || cold ? 1.75 : 1.45) * s;
     ctx.lineCap = 'round';
     ctx.beginPath();
-    if (isAngry) {
-      // Sharply slanted furious upper lid cutting down toward nose bridge
+    if (angry) {
       ctx.moveTo(ex - side * eyeW * 1.08, eyeY - eyeH * 0.06);
       ctx.quadraticCurveTo(ex, eyeY - eyeH * 0.28, ex + side * eyeW * 1.14, eyeY - eyeH * 0.58);
+    } else if (cold) {
+      ctx.moveTo(ex - eyeW * 1.12, eyeY - eyeH * 0.12);
+      ctx.lineTo(ex + eyeW * 1.12, eyeY - eyeH * 0.12);
+    } else if (serene) {
+      ctx.moveTo(ex - eyeW * 1.08, eyeY - eyeH * 0.26);
+      ctx.quadraticCurveTo(ex, eyeY - eyeH * 0.42, ex + eyeW * 1.08, eyeY - eyeH * 0.26);
     } else {
       ctx.moveTo(ex - eyeW * 1.08, eyeY - eyeH * 0.35);
       ctx.quadraticCurveTo(ex, eyeY - eyeH * 0.75, ex + eyeW * 1.15, eyeY - eyeH * 0.32);
@@ -884,25 +921,27 @@ function drawErenHead(cx, cy, s, facingScale, squint, isShouting, isSleepy, isAn
     ctx.strokeStyle = '#2b1b12';
     ctx.lineWidth = 0.5 * s;
     ctx.beginPath();
-    if (isAngry) {
+    if (angry) {
       ctx.moveTo(ex - side * eyeW * 0.85, eyeY - eyeH * 0.28);
       ctx.lineTo(ex + side * eyeW * 0.92, eyeY - eyeH * 0.74);
+    } else if (cold) {
+      ctx.moveTo(ex - eyeW * 0.85, eyeY - eyeH * 0.36);
+      ctx.lineTo(ex + eyeW * 0.85, eyeY - eyeH * 0.36);
     } else {
       ctx.moveTo(ex - eyeW * 0.8, eyeY - eyeH * 0.75);
       ctx.quadraticCurveTo(ex, eyeY - eyeH * 0.95, ex + eyeW * 0.75, eyeY - eyeH * 0.72);
     }
     ctx.stroke();
 
-    // Fine lower lash line (+ extra under-eye rage tension line when angry)
+    // Fine lower lash line (+ extra under-eye rage/deadpan line)
     ctx.strokeStyle = '#2b1b12';
-    ctx.lineWidth = (isAngry ? 0.75 : 0.55) * s;
+    ctx.lineWidth = (angry || cold ? 0.75 : 0.55) * s;
     ctx.beginPath();
-    ctx.moveTo(ex - eyeW * 0.65, eyeY + eyeH * (isAngry ? 0.56 : 0.5));
-    ctx.lineTo(ex + eyeW * 0.65, eyeY + eyeH * (isAngry ? 0.56 : 0.5));
+    ctx.moveTo(ex - eyeW * 0.65, eyeY + eyeH * (angry || cold ? 0.56 : 0.5));
+    ctx.lineTo(ex + eyeW * 0.65, eyeY + eyeH * (angry || cold ? 0.56 : 0.5));
     ctx.stroke();
 
-    if (isAngry) {
-      // Classic Attack on Titan under-eye rage shadow line
+    if (angry || cold) {
       ctx.strokeStyle = 'rgba(72, 36, 26, 0.7)';
       ctx.lineWidth = 0.55 * s;
       ctx.beginPath();
@@ -913,50 +952,166 @@ function drawErenHead(cx, cy, s, facingScale, squint, isShouting, isSleepy, isAn
   }
 
   // =========================================================================
-  // 5. EYEBROWS: THICK DETERMINED ANIME BROWS (Extra Steep & Furious When Angry!)
+  // 5. EYEBROWS: EXPRESSIVE ANIME BROWS MATCHING EACH REACTION!
   // =========================================================================
   ctx.fillStyle = '#1c0f08';
   ctx.strokeStyle = '#120d0a';
   ctx.lineWidth = ink * 0.45;
-  const browDrop = isAngry ? 1.55 * s : 0;
-  const browLiftOuter = isAngry ? 0.9 * s : 0;
 
-  // Left eyebrow (steep diagonal arch down toward nose bridge)
-  ctx.beginPath();
-  ctx.moveTo(-eyeSpacing - 4.5 * s, eyeY - 4.4 * s - browLiftOuter);
-  ctx.lineTo(-eyeSpacing + 3.8 * s, eyeY - 2.0 * s + browDrop);
-  ctx.lineTo(-eyeSpacing - 3.4 * s, eyeY - 5.8 * s - browLiftOuter);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
+  if (soft || happy || hopeful || serene) {
+    // Gentle relaxed / hopeful upward-arched brows (Mikasa, Sasha, Armin, Ymir)
+    const lift = (hopeful || happy) ? 1.4 * s : 0.5 * s;
+    ctx.strokeStyle = '#1c0f08';
+    ctx.lineWidth = 1.25 * s;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-eyeSpacing - 3.6 * s, eyeY - 4.8 * s - lift);
+    ctx.quadraticCurveTo(-eyeSpacing, eyeY - 6.2 * s - lift, -eyeSpacing + 3.2 * s, eyeY - 5.0 * s - lift);
+    ctx.moveTo(eyeSpacing + 3.6 * s, eyeY - 4.8 * s - lift);
+    ctx.quadraticCurveTo(eyeSpacing, eyeY - 6.2 * s - lift, eyeSpacing - 3.2 * s, eyeY - 5.0 * s - lift);
+    ctx.stroke();
+  } else if (shocked || nervous) {
+    // Worried / startled brows angled UP toward the center (/  \)
+    const lift = shocked ? 2.2 * s : 1.0 * s;
+    ctx.strokeStyle = '#1c0f08';
+    ctx.lineWidth = 1.3 * s;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-eyeSpacing - 3.8 * s, eyeY - 4.2 * s - lift * 0.4);
+    ctx.quadraticCurveTo(-eyeSpacing, eyeY - 5.8 * s - lift, -eyeSpacing + 3.4 * s, eyeY - 6.2 * s - lift);
+    ctx.moveTo(eyeSpacing + 3.8 * s, eyeY - 4.2 * s - lift * 0.4);
+    ctx.quadraticCurveTo(eyeSpacing, eyeY - 5.8 * s - lift, eyeSpacing - 3.4 * s, eyeY - 6.2 * s - lift);
+    ctx.stroke();
+  } else if (cold) {
+    // Flat, dead-serious Season 4 brows (Reiner)
+    ctx.beginPath();
+    ctx.moveTo(-eyeSpacing - 4.2 * s, eyeY - 3.6 * s);
+    ctx.lineTo(-eyeSpacing + 3.6 * s, eyeY - 3.2 * s);
+    ctx.lineTo(-eyeSpacing - 3.6 * s, eyeY - 4.6 * s);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
 
-  // Right eyebrow
-  ctx.beginPath();
-  ctx.moveTo(eyeSpacing + 4.5 * s, eyeY - 4.4 * s - browLiftOuter);
-  ctx.lineTo(eyeSpacing - 3.8 * s, eyeY - 2.0 * s + browDrop);
-  ctx.lineTo(eyeSpacing + 3.4 * s, eyeY - 5.8 * s - browLiftOuter);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(eyeSpacing + 4.2 * s, eyeY - 3.6 * s);
+    ctx.lineTo(eyeSpacing - 3.6 * s, eyeY - 3.2 * s);
+    ctx.lineTo(eyeSpacing + 3.6 * s, eyeY - 4.6 * s);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    // Determined / angry / heroic / smirk brows
+    const browDrop = angry ? 1.55 * s : (fierce || heroic ? 0.65 * s : 0);
+    const browLiftOuter = angry ? 0.9 * s : (heroic ? 0.8 * s : 0);
+    const rightCock = smirk ? 1.6 * s : 0;
 
-  // Forehead furrow wrinkle creases between the eyes (deeper when angry)
-  ctx.strokeStyle = '#321c10';
-  ctx.lineWidth = (isAngry ? 0.8 : 0.55) * s;
-  ctx.beginPath();
-  ctx.moveTo(-1.1 * s, eyeY - 2.8 * s + browDrop * 0.7);
-  ctx.lineTo(-0.45 * s, eyeY - 4.4 * s + browDrop * 0.2);
-  ctx.moveTo(1.1 * s, eyeY - 2.8 * s + browDrop * 0.7);
-  ctx.lineTo(0.45 * s, eyeY - 4.4 * s + browDrop * 0.2);
-  if (isAngry) {
-    ctx.moveTo(-0.7 * s, eyeY - 1.5 * s + browDrop * 0.5);
-    ctx.lineTo(0.7 * s, eyeY - 1.5 * s + browDrop * 0.5);
+    // Left eyebrow
+    ctx.beginPath();
+    ctx.moveTo(-eyeSpacing - 4.5 * s, eyeY - 4.4 * s - browLiftOuter);
+    ctx.lineTo(-eyeSpacing + 3.8 * s, eyeY - 2.0 * s + browDrop);
+    ctx.lineTo(-eyeSpacing - 3.4 * s, eyeY - 5.8 * s - browLiftOuter);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Right eyebrow (cocked upward when smirking!)
+    ctx.beginPath();
+    ctx.moveTo(eyeSpacing + 4.5 * s, eyeY - 4.4 * s - browLiftOuter - rightCock);
+    ctx.lineTo(eyeSpacing - 3.8 * s, eyeY - 2.0 * s + browDrop - rightCock * 0.5);
+    ctx.lineTo(eyeSpacing + 3.4 * s, eyeY - 5.8 * s - browLiftOuter - rightCock);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Forehead furrow wrinkle creases between the eyes
+    if (!smirk) {
+      ctx.strokeStyle = '#321c10';
+      ctx.lineWidth = (angry ? 0.8 : 0.55) * s;
+      ctx.beginPath();
+      ctx.moveTo(-1.1 * s, eyeY - 2.8 * s + browDrop * 0.7);
+      ctx.lineTo(-0.45 * s, eyeY - 4.4 * s + browDrop * 0.2);
+      ctx.moveTo(1.1 * s, eyeY - 2.8 * s + browDrop * 0.7);
+      ctx.lineTo(0.45 * s, eyeY - 4.4 * s + browDrop * 0.2);
+      if (angry) {
+        ctx.moveTo(-0.7 * s, eyeY - 1.5 * s + browDrop * 0.5);
+        ctx.lineTo(0.7 * s, eyeY - 1.5 * s + browDrop * 0.5);
+      }
+      ctx.stroke();
+    }
   }
-  ctx.stroke();
 
   // =========================================================================
-  // 6. MOUTH: SHOUTING BATTLE CRY (TATAKAE!) OR DETERMINED GLARE
+  // 6. MOUTH: DYNAMIC EXPRESSIONS MATCHING EACH REACTION!
   // =========================================================================
-  if (isShouting) {
+  if (happy || hopeful) {
+    // Big cheerful open laughing/excited smile (Sasha / Armin)
+    ctx.save();
+    ctx.fillStyle = '#c9494e';
+    ctx.strokeStyle = '#120d0a';
+    ctx.lineWidth = ink * 0.75;
+    ctx.beginPath();
+    ctx.moveTo(-3.2 * s, 5.2 * s);
+    ctx.quadraticCurveTo(0, 5.6 * s, 3.2 * s, 5.2 * s);
+    ctx.quadraticCurveTo(2.8 * s, 8.8 * s, 0, 9.0 * s);
+    ctx.quadraticCurveTo(-2.8 * s, 8.8 * s, -3.2 * s, 5.2 * s);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#f28b94';
+    ctx.beginPath();
+    ctx.arc(0, 8.4 * s, 1.7 * s, Math.PI, 0);
+    ctx.fill();
+    ctx.restore();
+  } else if (soft || serene) {
+    // Gentle warm small smile (Mikasa / Ymir)
+    ctx.strokeStyle = '#120d0a';
+    ctx.lineWidth = 0.9 * s;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-2.2 * s, 6.0 * s);
+    ctx.quadraticCurveTo(0, 7.4 * s, 2.2 * s, 6.0 * s);
+    ctx.stroke();
+  } else if (smirk) {
+    // Confident cheeky side smirk (Pieck - HANDS UP!)
+    ctx.strokeStyle = '#120d0a';
+    ctx.lineWidth = 0.95 * s;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-2.4 * s, 6.5 * s);
+    ctx.quadraticCurveTo(0.6 * s, 6.7 * s, 2.8 * s, 5.3 * s);
+    ctx.stroke();
+  } else if (shocked) {
+    // Startled open "O" mouth (Annie)
+    ctx.save();
+    ctx.fillStyle = '#8f2924';
+    ctx.strokeStyle = '#120d0a';
+    ctx.lineWidth = ink * 0.75;
+    ctx.beginPath();
+    ctx.ellipse(0, 6.8 * s, 2.0 * s, 2.4 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  } else if (nervous) {
+    // Wavy nervous grimace (Levi - CAPTAIN!!)
+    ctx.strokeStyle = '#120d0a';
+    ctx.lineWidth = 0.95 * s;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-2.6 * s, 6.6 * s);
+    ctx.quadraticCurveTo(-1.3 * s, 5.7 * s, 0, 6.6 * s);
+    ctx.quadraticCurveTo(1.3 * s, 7.5 * s, 2.6 * s, 6.4 * s);
+    ctx.stroke();
+  } else if (cold) {
+    // Flat, dead-serious Season 4 mouth (Reiner - SIT DOWN, REINER.)
+    ctx.strokeStyle = '#120d0a';
+    ctx.lineWidth = 0.9 * s;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-2.6 * s, 6.5 * s);
+    ctx.lineTo(2.6 * s, 6.5 * s);
+    ctx.stroke();
+  } else if (isShouting || heroic || fierce || angry) {
     ctx.save();
     // Mouth cavity
     ctx.fillStyle = '#8f2924';

@@ -96,18 +96,27 @@ function triggerTitanTransform() {
 function pickNextTitanAction() {
   // Check if it's time for one of his 1-2 random disobedient leaps to another block
   if (eren.titanHopsRemaining > 0 && eren.titanIdleTimer >= eren.titanNextHopTime && CARD_COUNT > 1) {
-    // Pick a random other block (prefer non-top-row so the 2x Titan stays well inside view)
-    let target = -1;
-    for (let tries = 0; tries < 12; tries++) {
-      const cand = Math.floor(Math.random() * CARD_COUNT);
-      if (cand !== eren.currentCard && !cards[cand].isTopRow) {
-        target = cand;
-        break;
+    // Pick uniformly among all other blocks, never landing on Mikasa's card (Image2.jpg / index 2)
+    let eligibleCount = 0;
+    for (let i = 0; i < CARD_COUNT; i++) {
+      if (i !== eren.currentCard && CARD_REACTIONS[i] !== REACT_MIKASA) {
+        eligibleCount++;
       }
     }
-    if (target < 0) {
-      target = (eren.currentCard + 1 + Math.floor(Math.random() * (CARD_COUNT - 1))) % CARD_COUNT;
+    let target = -1;
+    if (eligibleCount > 0) {
+      let pick = Math.floor(Math.random() * eligibleCount);
+      for (let i = 0; i < CARD_COUNT; i++) {
+        if (i !== eren.currentCard && CARD_REACTIONS[i] !== REACT_MIKASA) {
+          if (pick === 0) {
+            target = i;
+            break;
+          }
+          pick--;
+        }
+      }
     }
+    if (target < 0) return;
 
     eren.titanHopsRemaining--;
     eren.titanNextHopTime = eren.titanIdleTimer + 2.4 + Math.random() * 1.6;
@@ -173,12 +182,13 @@ function updateEren(dt) {
   // Update landing dust particles (used by both human Eren and Attack Titan impacts)
   if (activeDustCount > 0) {
     let anyAlive = false;
+    const dustDrag = Math.exp(-5.5 * dt);
     for (let i = 0; i < activeDustCount; i++) {
       if (dustAlpha[i] > 0.01) {
         dustX[i] += dustVx[i] * dt;
         dustY[i] += dustVy[i] * dt;
-        dustVx[i] *= Math.exp(-5.5 * dt);
-        dustVy[i] *= Math.exp(-5.5 * dt);
+        dustVx[i] *= dustDrag;
+        dustVy[i] *= dustDrag;
         dustAlpha[i] -= dt * 2.4;
         anyAlive = true;
       }
@@ -325,8 +335,8 @@ function updateEren(dt) {
 
   updateNaturalBlinking(dt);
 
-  // Eye tracking toward the cursor + squint when the cursor gets very close
-  {
+  // Eye tracking toward the cursor + squint when the cursor gets very close (skip math when idle & centered)
+  if (isPointerActive || Math.abs(eren.lookX) > 0.002 || Math.abs(eren.lookY) > 0.002 || eren.cursorNear > 0.002 || eren.windBlend > 0.002) {
     let tx = 0;
     let ty = 0;
     let near = 0;
@@ -350,6 +360,11 @@ function updateEren(dt) {
     const windRate = windTarget > eren.windBlend ? 7.0 : 2.2;
     eren.windBlend += (windTarget - eren.windBlend) * (1 - Math.exp(-windRate * dt));
     eren.windDir += (mouseDirX - eren.windDir) * (1 - Math.exp(-5 * dt));
+  } else {
+    eren.lookX = 0;
+    eren.lookY = 0;
+    eren.cursorNear = 0;
+    eren.windBlend = 0;
   }
 
   // Smooth squash-turn interpolation over ~0.15s when facing flips between -1 and 1
@@ -434,7 +449,8 @@ function updateEren(dt) {
     // Hover reactions on special cards (cursor resting on the card he's perched on)
     const reactCode = CARD_REACTIONS[eren.currentCard] | 0;
     const wantReact = reactCode !== REACT_NONE && isPointerActive &&
-      cards[eren.currentCard].fieldStrength > 0.45 && eren.idleTime > 0.35 && eren.flipTimer <= 0;
+      cards[eren.currentCard].fieldStrength > 0.45 && eren.idleTime > 0.35 && eren.flipTimer <= 0 &&
+      !(clickEffect.active && clickEffect.isErenClick);
     if (wantReact || eren.reactionBlend < 0.02) eren.reactionCode = reactCode;
     eren.reactionBlend += ((wantReact ? 1 : 0) - eren.reactionBlend) * (1 - Math.exp(-(wantReact ? 6.0 : 3.0) * dt));
     if (wantReact) {
@@ -463,6 +479,9 @@ function updateEren(dt) {
 
   updateOdm(dt);
 }
+
+let cachedBubbleFontSize = -1;
+let cachedBubbleFont = '';
 
 /**
  * Comic speech bubble with Spider-Verse hard offset shadow and speech pointer tail.
@@ -501,9 +520,14 @@ function drawComicBubble(x, y, text, s, alpha, rot) {
   ctx.fill();
   ctx.stroke();
 
-  // 3. Bold comic lettering
+  // 3. Bold comic lettering (cached font string)
+  const fSize = Math.round(8.2 * s);
+  if (fSize !== cachedBubbleFontSize) {
+    cachedBubbleFontSize = fSize;
+    cachedBubbleFont = '900 ' + fSize + 'px Impact, Arial Black, sans-serif';
+  }
   ctx.fillStyle = '#1c2e4a';
-  ctx.font = '900 ' + Math.round(8.2 * s) + 'px Impact, Arial Black, sans-serif';
+  ctx.font = cachedBubbleFont;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(text, 0, 0.5 * s);

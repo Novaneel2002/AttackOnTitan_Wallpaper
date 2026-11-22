@@ -65,14 +65,17 @@ function spawnOdmSteam(x, y, dirX, dirY) {
 function updateSteam(dt) {
   if (activeSteamCount <= 0) return;
   let alive = 0;
+  const drag = Math.exp(-3.5 * dt);
+  const growStep = dt * 8.0 * uniformScale;
+  const fadeStep = dt * 1.8;
   for (let i = 0; i < STEAM_POOL_SIZE; i++) {
     if (steamAlpha[i] > 0.01) {
       steamX[i] += steamVx[i] * dt;
       steamY[i] += steamVy[i] * dt;
-      steamVx[i] *= Math.exp(-3.5 * dt);
-      steamVy[i] *= Math.exp(-3.5 * dt);
-      steamRadius[i] += dt * 8.0 * uniformScale;
-      steamAlpha[i] -= dt * 1.8;
+      steamVx[i] *= drag;
+      steamVy[i] *= drag;
+      steamRadius[i] += growStep;
+      steamAlpha[i] -= fadeStep;
       alive++;
     } else {
       steamAlpha[i] = 0;
@@ -84,11 +87,11 @@ function updateSteam(dt) {
 function drawSteam() {
   if (activeSteamCount <= 0) return;
   ctx.save();
+  ctx.fillStyle = '#f0f5fa';
   for (let i = 0; i < STEAM_POOL_SIZE; i++) {
     const a = steamAlpha[i];
     if (a <= 0.01) continue;
     ctx.globalAlpha = a * 0.55;
-    ctx.fillStyle = '#f0f5fa';
     ctx.beginPath();
     ctx.arc(steamX[i], steamY[i], steamRadius[i], 0, Math.PI * 2);
     ctx.fill();
@@ -123,9 +126,14 @@ const clickEffect = {
   cardIdx: -1,
   relX: 0,
   relY: 0,
-  isErenClick: false
+  isErenClick: false,
+  text: 'TCH.',
+  isAngry: false
 };
 
+
+let cachedClickFontSize = -1;
+let cachedClickFont = '';
 
 /**
  * Draws comic-book "SHING!" or "TCH." speech bubble and web-splat on click.
@@ -135,6 +143,12 @@ function drawClickEffects(s) {
 
   const progress = clickEffect.timer / clickEffect.duration;
   const alpha = progress < 0.7 ? 1.0 : Math.max(0, (1.0 - progress) / 0.3);
+
+  const fSize = Math.round(9.5 * s);
+  if (fSize !== cachedClickFontSize) {
+    cachedClickFontSize = fSize;
+    cachedClickFont = '900 ' + fSize + 'px Impact, Arial Black, sans-serif';
+  }
 
   ctx.save();
   ctx.globalAlpha = alpha;
@@ -158,32 +172,43 @@ function drawClickEffects(s) {
     ctx.stroke();
 
     ctx.fillStyle = '#d11f28';
-    ctx.font = '900 ' + Math.round(9.5 * s) + 'px Impact, Arial Black, sans-serif';
+    ctx.font = cachedClickFont;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('SHING!', 0, 0.5 * s);
   } else {
-    // Comic "TCH." badge when clicking directly on Eren
-    const bx = eren.x + eren.facing * 22 * s;
-    const by = eren.y - 38 * s - Math.sin(progress * Math.PI) * 6 * s;
+    // Comic speech bubble when clicking directly on Eren:
+    // 1st & 2nd click: "TCH." | 3rd click: "YAMERO!!" | 4th click: "OII!!"
+    const label = clickEffect.text || 'TCH.';
+    ctx.font = cachedClickFont;
+    const textW = ctx.measureText(label).width;
+    const boxW = Math.max(42 * s, textW + 14 * s);
+    const halfW = boxW * 0.5;
+
+    const shake = clickEffect.isAngry ? Math.sin(elapsedTime * 38) * 1.1 * s : 0;
+    const rawBx = eren.x + eren.facing * 22 * s + shake;
+    const bx = Math.max(halfW + 8, Math.min(viewWidth - halfW - 8, rawBx));
+    const by = Math.max(12 * s + 6, eren.y - 38 * s - Math.sin(progress * Math.PI) * 6 * s);
     ctx.translate(bx, by);
+    if (clickEffect.isAngry) {
+      ctx.rotate(-0.08 * eren.facing);
+    }
 
     ctx.fillStyle = '#080608';
-    traceRoundedRect(-21 * s + 1.8 * s, -9.5 * s + 2.0 * s, 42 * s, 19 * s, 6 * s);
+    traceRoundedRect(-halfW + 1.8 * s, -9.5 * s + 2.0 * s, boxW, 19 * s, 6 * s);
     ctx.fill();
 
     ctx.fillStyle = '#fffef2';
     ctx.strokeStyle = '#080608';
     ctx.lineWidth = 1.8 * s;
-    traceRoundedRect(-21 * s, -9.5 * s, 42 * s, 19 * s, 6 * s);
+    traceRoundedRect(-halfW, -9.5 * s, boxW, 19 * s, 6 * s);
     ctx.fill();
     ctx.stroke();
 
     ctx.fillStyle = '#d11f28';
-    ctx.font = '900 ' + Math.round(9.5 * s) + 'px Impact, Arial Black, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('TCH.', 0, 0.5 * s);
+    ctx.fillText(label, 0, 0.5 * s);
   }
 
   ctx.restore();
@@ -306,12 +331,14 @@ function updateTitanEffects(dt) {
   }
   if (activeSmokeCount > 0) {
     let alive = 0;
+    const dragX = Math.exp(-2.6 * dt);
+    const dragY = Math.exp(-2.0 * dt);
     for (let i = 0; i < SMOKE_POOL_SIZE; i++) {
       if (smokeAlpha[i] > 0.01) {
         smokeX[i] += smokeVx[i] * dt;
         smokeY[i] += smokeVy[i] * dt;
-        smokeVx[i] *= Math.exp(-2.6 * dt);
-        smokeVy[i] *= Math.exp(-2.0 * dt);
+        smokeVx[i] *= dragX;
+        smokeVy[i] *= dragY;
         smokeRadius[i] += smokeGrow[i] * dt;
         smokeAlpha[i] -= smokeFade[i] * dt;
         alive++;

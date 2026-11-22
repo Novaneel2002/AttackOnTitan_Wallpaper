@@ -162,6 +162,8 @@ for (let i = 0; i < CARD_COUNT; i++) {
     card.loaded = true;
     card.loadProgress = 0.001;
     rebuildCardCache(card);
+    bgDirty = true;
+    if (typeof wakeNow === 'function') wakeNow();
   };
 
   img.onerror = function () {

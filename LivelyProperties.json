@@ -64,5 +64,10 @@
     "type": "checkbox",
     "value": true,
     "text": "Show Gas Steam"
+  },
+  "powerSaver": {
+    "type": "checkbox",
+    "value": false,
+    "text": "Power Saver Mode (30 FPS / 1x Scale)"
   }
 }
