@@ -132,14 +132,19 @@ const eren = {
   blinkProgress: 0,
   isBlinking: false,
   pendingDoubleBlink: false,
-  // Click flip/wave state (when clicking directly on Eren)
-  flipTimer: 0,
-  handWorldX: 0,         // Exact world X of Eren's web-shooting hand
-  handWorldY: 0,         // Exact world Y of Eren's web-shooting hand
+  handWorldX: 0,         // Exact world X of Eren's hand
+  handWorldY: 0,         // Exact world Y of Eren's hand
   headWorldX: 0,         // World position of his head (eye tracking, reactions, cast shadow)
   headWorldY: 0,
   headRot: 0,            // World rotation / flip of the head (for eye-tracking space)
   headFlipY: 1,
+  // Secondary motion (hair lag) & autonomous roam
+  hairLagX: 0,
+  hairLagY: 0,
+  autoRoamTimer: 28.0,
+  titanMarkTimer: 0,     // Post-revert Titan shifter cheek marks & lingering shoulder steam
+  screenShake: 0,        // Foreground micro-shake intensity on Titan impacts
+  roarPulse: 0,          // Attack Titan roar intensity for soundwave rings & comic burst
   // Swing mode state
   swingMode: 0,
   endIsCard: true,
@@ -183,8 +188,7 @@ const eren = {
   titanImpactDone: false,
   titanJumpY: 0,
   titanSteamAccum: 0,
-  titanHopsRemaining: 0,
-  titanNextHopTime: 0,
+  titanHitCount: 0,
   titanLeapStartX: 0,
   titanLeapStartY: 0,
   titanLeapTargetCard: -1,

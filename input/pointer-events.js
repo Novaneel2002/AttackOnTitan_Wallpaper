@@ -67,10 +67,7 @@ function triggerSingleClickAction(clickX, clickY) {
     eren.sassyBlend = 0;
     eren.sitBlend = 0;
     eren.deepIdleBlend = 0;
-    // At 3rd & 4th click, hold angry hand-in-front-of-mouth pose without flipping
-    if (eren.erenClickCount < 3) {
-      eren.flipTimer = 1.0;
-    }
+    eren.autoRoamTimer = 25 + Math.random() * 20;
     clickEffect.active = true;
     clickEffect.timer = 0;
     clickEffect.isErenClick = true;

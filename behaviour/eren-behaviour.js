@@ -80,46 +80,92 @@ function triggerTitanTransform() {
   eren.titanIdleTimer = 0;
   eren.titanJumpY = 0;
   eren.titanSteamAccum = 0;
-  // Randomly jump around to another block 1-2 times during his rampage (never following mouse!)
-  eren.titanHopsRemaining = Math.random() < 0.5 ? 1 : 2;
-  eren.titanNextHopTime = 2.0 + Math.random() * 1.8;
+  eren.titanHitCount = 0; // Leap to another image block after every 2 hits
   eren.titanLeapTargetCard = -1;
 
-  // 5-7 yellow thunderbolts + white clouds around him
+  // 5-7 yellow thunderbolts + white clouds + golden shockwave around him
   spawnTitanLightning(eren.x, eren.y, s);
   spawnTitanClouds(eren.x, eren.y, 28, s, false);
+  spawnShockwave(eren.x, eren.y - 12 * s, 96 * s, '#ffe53b', 3.4 * s);
+  eren.screenShake = 1.0;
 
   // Jolt the block he's standing on
   cards[eren.currentCard].offsetY += 10 * uniformScale;
 }
 
-function pickNextTitanAction() {
-  // Check if it's time for one of his 1-2 random disobedient leaps to another block
-  if (eren.titanHopsRemaining > 0 && eren.titanIdleTimer >= eren.titanNextHopTime && CARD_COUNT > 1) {
-    // Pick uniformly among all other blocks, never landing on Mikasa's card (Image2.jpg / index 2)
-    let eligibleCount = 0;
-    for (let i = 0; i < CARD_COUNT; i++) {
-      if (i !== eren.currentCard && CARD_REACTIONS[i] !== REACT_MIKASA) {
-        eligibleCount++;
-      }
+function pushCardsRadially(originX, originY, strength) {
+  const us = uniformScale;
+  const maxDist = 280 * us;
+  for (let i = 0; i < CARD_COUNT; i++) {
+    if (i === eren.currentCard) continue;
+    const c = cards[i];
+    const dx = c.cx - originX;
+    const dy = c.cy - originY;
+    const d = Math.hypot(dx, dy);
+    if (d > 1 && d < maxDist) {
+      const f = (1 - d / maxDist) * strength * us;
+      c.offsetX += (dx / d) * f;
+      c.offsetY += (dy / d) * f;
     }
-    let target = -1;
-    if (eligibleCount > 0) {
-      let pick = Math.floor(Math.random() * eligibleCount);
-      for (let i = 0; i < CARD_COUNT; i++) {
-        if (i !== eren.currentCard && CARD_REACTIONS[i] !== REACT_MIKASA) {
-          if (pick === 0) {
-            target = i;
-            break;
-          }
-          pick--;
-        }
-      }
-    }
-    if (target < 0) return;
+  }
+}
 
-    eren.titanHopsRemaining--;
-    eren.titanNextHopTime = eren.titanIdleTimer + 2.4 + Math.random() * 1.6;
+// Pre-allocated Fisher-Yates shuffle bag so Attack Titan visits every non-Mikasa image before repeating
+const titanCardBag = new Int8Array(CARD_COUNT);
+let titanBagLen = 0;
+let titanBagPos = 0;
+let titanLastCard = -1;
+
+function refillTitanCardBag(excludeCard) {
+  titanBagLen = 0;
+  for (let i = 0; i < CARD_COUNT; i++) {
+    if (CARD_REACTIONS[i] !== REACT_MIKASA) {
+      titanCardBag[titanBagLen++] = i;
+    }
+  }
+  // Fisher-Yates shuffle
+  for (let i = titanBagLen - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = titanCardBag[i];
+    titanCardBag[i] = titanCardBag[j];
+    titanCardBag[j] = tmp;
+  }
+  // Avoid starting a fresh bag with the current card or the immediately previous card
+  if (titanBagLen > 1 && (titanCardBag[0] === excludeCard || titanCardBag[0] === titanLastCard)) {
+    const swapIdx = 1 + Math.floor(Math.random() * (titanBagLen - 1));
+    const tmp = titanCardBag[0];
+    titanCardBag[0] = titanCardBag[swapIdx];
+    titanCardBag[swapIdx] = tmp;
+  }
+  titanBagPos = 0;
+}
+
+function drawNextTitanCard() {
+  if (titanBagPos >= titanBagLen) {
+    refillTitanCardBag(eren.currentCard);
+  }
+  // If the next card in the bag happens to be the one he's standing on, swap it forward
+  if (titanCardBag[titanBagPos] === eren.currentCard) {
+    if (titanBagPos + 1 < titanBagLen) {
+      const tmp = titanCardBag[titanBagPos];
+      titanCardBag[titanBagPos] = titanCardBag[titanBagPos + 1];
+      titanCardBag[titanBagPos + 1] = tmp;
+    } else {
+      refillTitanCardBag(eren.currentCard);
+    }
+  }
+  const picked = titanCardBag[titanBagPos++];
+  titanLastCard = eren.currentCard;
+  return picked;
+}
+
+function pickNextTitanAction() {
+  // Leap to the next unvisited image in the shuffle bag after every 2 hits (never Mikasa's card)
+  if (eren.titanHitCount >= 2 && CARD_COUNT > 1) {
+    const target = drawNextTitanCard();
+    if (target < 0 || target === eren.currentCard) return;
+
+    eren.titanHitCount = 0;
     eren.titanAction = TITAN_ACT_LEAP;
     eren.titanActionTimer = 0;
     eren.titanActionDur = 0.88;
@@ -133,17 +179,18 @@ function pickNextTitanAction() {
     return;
   }
 
-  // Cycle aggressively through punching, kicking, and jumping on the block (plus brief roars)
-  const r = Math.random();
-  let nextAct;
-  if (r < 0.34) nextAct = TITAN_ACT_PUNCH;
-  else if (r < 0.66) nextAct = TITAN_ACT_KICK;
-  else if (r < 0.90) nextAct = TITAN_ACT_JUMP;
-  else nextAct = TITAN_ACT_ROAR;
-
-  // Avoid repeating the exact same action back-to-back too often
-  if (nextAct === eren.titanAction) {
-    nextAct = (nextAct + 1) % 3;
+  // Pick a varied strike/roar without falling into a fixed Punch -> Kick -> Jump cycle
+  const prev = eren.titanAction;
+  let nextAct = prev;
+  for (let tries = 0; tries < 6 && nextAct === prev; tries++) {
+    const r = Math.random();
+    if (r < 0.34) nextAct = TITAN_ACT_PUNCH;
+    else if (r < 0.66) nextAct = TITAN_ACT_KICK;
+    else if (r < 0.88) nextAct = TITAN_ACT_JUMP;
+    else nextAct = TITAN_ACT_ROAR;
+  }
+  if (nextAct === prev) {
+    nextAct = (prev + 1 + Math.floor(Math.random() * 2)) % 3;
   }
 
   eren.titanAction = nextAct;
@@ -167,6 +214,25 @@ function updateEren(dt) {
 
   const s = uniformScale * config.erenScale;
   updateTitanEffects(dt);
+
+  if (eren.screenShake > 0) {
+    eren.screenShake = Math.max(0, eren.screenShake - dt * 2.8);
+  }
+  if (eren.titanMarkTimer > 0 && eren.titanState === TITAN_NONE) {
+    eren.titanMarkTimer = Math.max(0, eren.titanMarkTimer - dt);
+    eren.titanSteamAccum += dt;
+    if (eren.titanSteamAccum >= 0.34 && eren.titanMarkTimer > 0.8) {
+      eren.titanSteamAccum = 0;
+      if (typeof spawnOdmSteam === 'function') {
+        spawnOdmSteam(
+          eren.x + (Math.random() - 0.5) * 10 * s,
+          eren.y - 16 * s,
+          (Math.random() - 0.5) * 0.25,
+          -0.6
+        );
+      }
+    }
+  }
 
   // Prune clicks older than 5 seconds so 3rd-click angry pose resets if 5s elapse
   if (eren.erenClickCount > 0) {
@@ -265,8 +331,12 @@ function updateEren(dt) {
           if (!eren.titanImpactDone) {
             eren.titanImpactDone = true;
             cards[eren.currentCard].offsetY += 18 * uniformScale;
+            eren.screenShake = 1.0;
             spawnLandingImpact(eren.x, eren.y, 0, -1);
             spawnTitanClouds(eren.x, eren.y, 7, s * 0.72, false);
+            spawnShockwave(eren.x, eren.y, 78 * s, '#ffffff', 2.8 * s);
+            spawnAnchorSparks(eren.x, eren.y, 8);
+            pushCardsRadially(eren.x, eren.y, 12);
           }
         }
       } else if (eren.titanAction === TITAN_ACT_JUMP) {
@@ -277,26 +347,54 @@ function updateEren(dt) {
         }
         if (p >= 0.72 && !eren.titanImpactDone) {
           eren.titanImpactDone = true;
+          eren.titanHitCount++;
           c.offsetY += 14 * uniformScale;
+          eren.screenShake = 0.8;
           spawnLandingImpact(eren.x, eren.y, 0, -1);
+          spawnShockwave(eren.x, eren.y, 62 * s, '#ffffff', 2.3 * s);
+          spawnAnchorSparks(eren.x, eren.y, 6);
+          pushCardsRadially(eren.x, eren.y, 8);
         }
       } else if (eren.titanAction === TITAN_ACT_PUNCH) {
         eren.titanJumpY = 0;
         if (p >= 0.52 && !eren.titanImpactDone) {
           eren.titanImpactDone = true;
+          eren.titanHitCount++;
           c.offsetY += 11 * uniformScale;
-          spawnLandingImpact(eren.x + eren.facing * 14 * s, eren.y, 0, -1);
+          eren.screenShake = 0.65;
+          const ix = eren.x + eren.facing * 14 * s;
+          spawnLandingImpact(ix, eren.y, 0, -1);
+          spawnShockwave(ix, eren.y, 46 * s, '#ffe8b0', 2.1 * s);
+          spawnAnchorSparks(ix, eren.y, 5);
         }
       } else if (eren.titanAction === TITAN_ACT_KICK) {
         eren.titanJumpY = 0;
         if (p >= 0.52 && !eren.titanImpactDone) {
           eren.titanImpactDone = true;
+          eren.titanHitCount++;
           c.offsetY += 9 * uniformScale;
           c.offsetX += eren.facing * 6 * uniformScale;
-          spawnLandingImpact(eren.x + eren.facing * 16 * s, eren.y, 0, -1);
+          eren.screenShake = 0.55;
+          const ix = eren.x + eren.facing * 16 * s;
+          spawnLandingImpact(ix, eren.y, 0, -1);
+          spawnShockwave(ix, eren.y, 42 * s, '#ffe8b0', 1.9 * s);
+          spawnAnchorSparks(ix, eren.y, 5);
         }
       } else {
         eren.titanJumpY = 0;
+        eren.roarPulse = Math.sin(p * Math.PI);
+        if (eren.roarPulse > 0.25) {
+          eren.screenShake = Math.max(eren.screenShake, 0.32 * eren.roarPulse);
+        }
+        if (p >= 0.22 && !eren.titanImpactDone) {
+          eren.titanImpactDone = true;
+          const ry = eren.headWorldY || (eren.y - 48 * s);
+          spawnShockwave(eren.x, ry, 72 * s, '#ffe53b', 2.4 * s);
+          spawnShockwave(eren.x, ry, 108 * s, '#ffffff', 1.5 * s);
+        }
+      }
+      if (eren.titanAction !== TITAN_ACT_ROAR) {
+        eren.roarPulse = 0;
       }
 
       if (eren.titanActionTimer >= eren.titanActionDur) {
@@ -325,9 +423,13 @@ function updateEren(dt) {
         eren.titanState = TITAN_NONE;
         eren.titanTransTimer = 0;
         eren.titanIdleTimer = 0;
+        eren.roarPulse = 0;
         eren.erenClickCount = 0;
         eren.idleTime = 0;
         eren.landSquash = 0.6;
+        eren.titanMarkTimer = 8.0; // Iconic post-revert Titan shifter cheek marks + light steam
+        eren.titanSteamAccum = 0;
+        eren.autoRoamTimer = 25 + Math.random() * 20;
       }
     }
     return;
@@ -385,9 +487,16 @@ function updateEren(dt) {
     eren.landSquash = Math.max(0, eren.landSquash - dt * 3.8);
   }
 
-  if (eren.flipTimer > 0) {
-    eren.flipTimer = Math.max(0, eren.flipTimer - dt / 0.65);
-  }
+  // Secondary motion for hair bangs & cowlicks (velocity lag + wind + landing bounce)
+  const hairTargetX = eren.isSwinging
+    ? Math.max(-2.6, Math.min(2.6, -eren.vx / (320 * Math.max(0.2, uniformScale))))
+    : (eren.windDir * eren.windBlend * 2.4);
+  const hairTargetY = eren.isSwinging
+    ? Math.max(-2.0, Math.min(2.0, -eren.vy / (340 * Math.max(0.2, uniformScale))))
+    : (Math.sin(eren.landSquash * Math.PI) * 1.4);
+  const hairA = 1 - Math.exp(-12.0 * dt);
+  eren.hairLagX += (hairTargetX - eren.hairLagX) * hairA;
+  eren.hairLagY += (hairTargetY - eren.hairLagY) * hairA;
 
   if (clickEffect.active) {
     clickEffect.timer += dt;
@@ -449,7 +558,7 @@ function updateEren(dt) {
     // Hover reactions on special cards (cursor resting on the card he's perched on)
     const reactCode = CARD_REACTIONS[eren.currentCard] | 0;
     const wantReact = reactCode !== REACT_NONE && isPointerActive &&
-      cards[eren.currentCard].fieldStrength > 0.45 && eren.idleTime > 0.35 && eren.flipTimer <= 0 &&
+      cards[eren.currentCard].fieldStrength > 0.45 && eren.idleTime > 0.35 &&
       !(clickEffect.active && clickEffect.isErenClick);
     if (wantReact || eren.reactionBlend < 0.02) eren.reactionCode = reactCode;
     eren.reactionBlend += ((wantReact ? 1 : 0) - eren.reactionBlend) * (1 - Math.exp(-(wantReact ? 6.0 : 3.0) * dt));
@@ -473,10 +582,27 @@ function updateEren(dt) {
       if (Math.abs(lookDx) > 16 * uniformScale) {
         eren.facing = lookDx >= 0 ? 1 : -1;
       }
+      if (timeSinceMouseMove < 2.0) {
+        eren.autoRoamTimer = 25 + Math.random() * 20;
+      }
+    }
+
+    // Autonomous roaming when idle (skips while deeply asleep at night or actively reacting)
+    const sleepingAtNight = (timeOfDayMode === TOD_NIGHT && eren.deepIdleBlend > 0.5);
+    if (config.autoRoam && !sleepingAtNight && !wantReact && timeSinceMouseMove > 10.0 && CARD_COUNT > 1) {
+      eren.autoRoamTimer -= dt;
+      if (eren.autoRoamTimer <= 0) {
+        eren.autoRoamTimer = 25 + Math.random() * 20;
+        let nextCard = Math.floor(Math.random() * (CARD_COUNT - 1));
+        if (nextCard >= eren.currentCard) nextCard++;
+        setSlashWanted(nextCard);
+        requestSwingToCard(nextCard);
+      }
     }
     return;
   }
 
+  eren.autoRoamTimer = 25 + Math.random() * 20;
   updateOdm(dt);
 }
 

@@ -251,6 +251,138 @@ function drawLandingDust() {
 }
 
 // ============================================================================
+// METALLIC ANCHOR SPARKS & TITAN IMPACT DEBRIS POOL (Pre-allocated, zero GC)
+// ============================================================================
+const SPARK_POOL_SIZE = 28;
+const sparkX = new Float32Array(SPARK_POOL_SIZE);
+const sparkY = new Float32Array(SPARK_POOL_SIZE);
+const sparkVx = new Float32Array(SPARK_POOL_SIZE);
+const sparkVy = new Float32Array(SPARK_POOL_SIZE);
+const sparkAlpha = new Float32Array(SPARK_POOL_SIZE);
+const sparkHot = new Uint8Array(SPARK_POOL_SIZE); // 0 = orange-gold, 1 = white-hot
+let activeSparkCount = 0;
+let sparkCursor = 0;
+
+function spawnAnchorSparks(x, y, count) {
+  const n = count || 3;
+  const us = uniformScale;
+  for (let k = 0; k < n; k++) {
+    const i = sparkCursor;
+    sparkCursor = (sparkCursor + 1) % SPARK_POOL_SIZE;
+    if (activeSparkCount < SPARK_POOL_SIZE) activeSparkCount++;
+
+    const ang = -Math.PI * 0.9 + Math.random() * Math.PI * 1.8;
+    const spd = (75 + Math.random() * 145) * us;
+    sparkX[i] = x + (Math.random() - 0.5) * 3 * us;
+    sparkY[i] = y + (Math.random() - 0.5) * 3 * us;
+    sparkVx[i] = Math.cos(ang) * spd;
+    sparkVy[i] = Math.sin(ang) * spd - 40 * us;
+    sparkAlpha[i] = 0.9 + Math.random() * 0.1;
+    sparkHot[i] = (k & 1);
+  }
+}
+
+function updateSparks(dt) {
+  if (activeSparkCount <= 0) return;
+  let alive = 0;
+  const g = 520 * uniformScale;
+  const drag = Math.exp(-3.2 * dt);
+  for (let i = 0; i < SPARK_POOL_SIZE; i++) {
+    if (sparkAlpha[i] > 0.02) {
+      sparkX[i] += sparkVx[i] * dt;
+      sparkY[i] += sparkVy[i] * dt;
+      sparkVx[i] *= drag;
+      sparkVy[i] = sparkVy[i] * drag + g * dt;
+      sparkAlpha[i] -= dt * 3.1;
+      alive++;
+    } else {
+      sparkAlpha[i] = 0;
+    }
+  }
+  activeSparkCount = alive;
+}
+
+function drawSparks() {
+  if (activeSparkCount <= 0) return;
+  const us = uniformScale;
+  ctx.save();
+  ctx.lineCap = 'round';
+  for (let i = 0; i < SPARK_POOL_SIZE; i++) {
+    const a = sparkAlpha[i];
+    if (a <= 0.02) continue;
+    ctx.globalAlpha = a;
+    ctx.strokeStyle = sparkHot[i] ? '#fffbe6' : '#ffae2b';
+    ctx.lineWidth = (sparkHot[i] ? 1.5 : 2.1) * us;
+    const tail = 0.032;
+    ctx.beginPath();
+    ctx.moveTo(sparkX[i], sparkY[i]);
+    ctx.lineTo(sparkX[i] - sparkVx[i] * tail, sparkY[i] - sparkVy[i] * tail);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ============================================================================
+// IMPACT SHOCKWAVE & TITAN ROAR SOUNDWAVE RINGS (Pre-allocated, zero GC)
+// ============================================================================
+const RING_POOL_SIZE = 10;
+const ringX = new Float32Array(RING_POOL_SIZE);
+const ringY = new Float32Array(RING_POOL_SIZE);
+const ringR = new Float32Array(RING_POOL_SIZE);
+const ringMaxR = new Float32Array(RING_POOL_SIZE);
+const ringAlpha = new Float32Array(RING_POOL_SIZE);
+const ringWidth = new Float32Array(RING_POOL_SIZE);
+const ringColor = new Array(RING_POOL_SIZE).fill('#ffffff');
+let activeRingCount = 0;
+let ringCursor = 0;
+
+function spawnShockwave(x, y, maxR, color, width) {
+  const i = ringCursor;
+  ringCursor = (ringCursor + 1) % RING_POOL_SIZE;
+  if (activeRingCount < RING_POOL_SIZE) activeRingCount++;
+
+  ringX[i] = x;
+  ringY[i] = y;
+  ringR[i] = 6 * uniformScale;
+  ringMaxR[i] = maxR;
+  ringAlpha[i] = 0.88;
+  ringWidth[i] = width || (2.4 * uniformScale);
+  ringColor[i] = color || '#ffffff';
+}
+
+function updateShockwaves(dt) {
+  if (activeRingCount <= 0) return;
+  let alive = 0;
+  for (let i = 0; i < RING_POOL_SIZE; i++) {
+    if (ringAlpha[i] > 0.015) {
+      const rem = ringMaxR[i] - ringR[i];
+      ringR[i] += Math.max(45 * uniformScale, rem * 6.5) * dt;
+      ringAlpha[i] -= dt * 2.25;
+      alive++;
+    } else {
+      ringAlpha[i] = 0;
+    }
+  }
+  activeRingCount = alive;
+}
+
+function drawShockwaves() {
+  if (activeRingCount <= 0) return;
+  ctx.save();
+  for (let i = 0; i < RING_POOL_SIZE; i++) {
+    const a = ringAlpha[i];
+    if (a <= 0.015) continue;
+    ctx.globalAlpha = a * 0.72;
+    ctx.strokeStyle = ringColor[i];
+    ctx.lineWidth = Math.max(0.8, ringWidth[i] * a);
+    ctx.beginPath();
+    ctx.arc(ringX[i], ringY[i], ringR[i], 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ============================================================================
 // ATTACK TITAN TRANSFORMATION VFX: Yellow Thunderbolts (5-7) & White Smoke Clouds
 // ============================================================================
 const TITAN_BOLT_MAX = 7;
@@ -323,6 +455,8 @@ function spawnTitanClouds(cx, cy, count, s, isRevertSmoke) {
 }
 
 function updateTitanEffects(dt) {
+  updateSparks(dt);
+  updateShockwaves(dt);
   if (titanBoltTimer > 0) {
     titanBoltTimer = Math.max(0, titanBoltTimer - dt);
   }
@@ -352,6 +486,10 @@ function updateTitanEffects(dt) {
 
 function drawTitanEffects() {
   const us = uniformScale;
+
+  // 0. Expanding shockwave / roar soundwave rings & sparks
+  drawShockwaves();
+  drawSparks();
 
   // 1. White clouds / dense Titan evaporation smoke
   if (activeSmokeCount > 0) {
@@ -418,6 +556,57 @@ function drawTitanEffects() {
         ctx.stroke();
       }
     }
+    ctx.restore();
+  }
+
+  // 3. Vibrating "ROAAAR!!" comic burst during Attack Titan roar
+  if (eren.titanState === TITAN_ACTIVE && eren.titanAction === TITAN_ACT_ROAR && eren.roarPulse > 0.15) {
+    const s = uniformScale * config.erenScale;
+    const pulse = eren.roarPulse;
+    const shakeX = Math.sin(elapsedTime * 68) * 2.4 * s;
+    const shakeY = Math.cos(elapsedTime * 74) * 1.8 * s;
+    const bx = Math.max(52 * s, Math.min(viewWidth - 52 * s, eren.x + eren.facing * 36 * s + shakeX));
+    const by = Math.max(24 * s, (eren.headWorldY || eren.y - 50 * s) - 26 * s + shakeY);
+
+    ctx.save();
+    ctx.translate(bx, by);
+    ctx.rotate(-0.12 * eren.facing);
+    ctx.globalAlpha = Math.min(1, pulse * 1.35);
+
+    const sc = 0.82 + 0.24 * pulse;
+    ctx.scale(sc, sc);
+
+    // Spiky jagged comic roar burst background
+    const spikes = 12;
+    ctx.beginPath();
+    for (let k = 0; k < spikes * 2; k++) {
+      const ang = (k / (spikes * 2)) * Math.PI * 2;
+      const rx = (k & 1) ? 38 * s : 48 * s;
+      const ry = (k & 1) ? 14 * s : 21 * s;
+      const px = Math.cos(ang) * rx;
+      const py = Math.sin(ang) * ry;
+      if (k === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fillStyle = '#080608';
+    ctx.save();
+    ctx.translate(2.2 * s, 2.4 * s);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.fillStyle = '#ffe53b';
+    ctx.strokeStyle = '#080608';
+    ctx.lineWidth = 2.0 * s;
+    ctx.fill();
+    ctx.stroke();
+
+    const fSize = Math.round(11.5 * s);
+    ctx.font = '900 ' + fSize + 'px Impact, Arial Black, sans-serif';
+    ctx.fillStyle = '#b9121b';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('ROAAAR!!', 0, 0.5 * s);
     ctx.restore();
   }
 }

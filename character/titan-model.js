@@ -218,11 +218,14 @@ function drawTitanTorso(cx, cy, w, h, s, ink) {
  * - Deeply sunken dark eye sockets with glowing bright emerald-green eyes
  * - Exposed lipless jaw with interlocking jagged teeth (or huge roaring open mouth!)
  */
-function drawTitanHead(cx, cy, s, isRoaring) {
+function drawTitanHead(cx, cy, s, isRoaring, hairWhipX, hairWhipY, eyeBoost) {
   ctx.save();
   ctx.translate(cx, cy);
 
   const ink = Math.max(0.65, 0.58 * s);
+  const wx = (hairWhipX || 0) * s;
+  const wy = (hairWhipY || 0) * s;
+  const boost = (eyeBoost || 0) + (isRoaring ? 0.5 : 0);
 
   // =========================================================================
   // 1. BACK SHAGGY HAIR LAYER (Long wild dark locks framing neck & shoulders)
@@ -232,24 +235,24 @@ function drawTitanHead(cx, cy, s, isRoaring) {
   ctx.lineWidth = ink * 0.9;
   ctx.lineJoin = 'round';
   ctx.beginPath();
-  ctx.moveTo(-9.5 * s, 9.8 * s);
-  ctx.lineTo(-12.2 * s, 6.2 * s);
-  ctx.lineTo(-10.8 * s, 3.0 * s);
-  ctx.lineTo(-13.2 * s, -1.8 * s);
-  ctx.lineTo(-11.4 * s, -6.5 * s);
-  ctx.lineTo(-12.6 * s, -11.0 * s);
-  ctx.lineTo(-8.2 * s, -15.4 * s);
-  ctx.lineTo(-2.5 * s, -17.2 * s);
-  ctx.lineTo(2.5 * s, -17.2 * s);
-  ctx.lineTo(8.2 * s, -15.4 * s);
-  ctx.lineTo(12.6 * s, -11.0 * s);
-  ctx.lineTo(11.4 * s, -6.5 * s);
-  ctx.lineTo(13.2 * s, -1.8 * s);
-  ctx.lineTo(10.8 * s, 3.0 * s);
-  ctx.lineTo(12.2 * s, 6.2 * s);
-  ctx.lineTo(9.5 * s, 9.8 * s);
-  ctx.lineTo(6.2 * s, 8.2 * s);
-  ctx.lineTo(-6.2 * s, 8.2 * s);
+  ctx.moveTo(-9.5 * s + wx * 1.1, 9.8 * s + wy * 0.7);
+  ctx.lineTo(-12.2 * s + wx * 1.25, 6.2 * s + wy * 0.5);
+  ctx.lineTo(-10.8 * s + wx * 0.7, 3.0 * s);
+  ctx.lineTo(-13.2 * s + wx * 1.1, -1.8 * s + wy * 0.4);
+  ctx.lineTo(-11.4 * s + wx * 0.6, -6.5 * s);
+  ctx.lineTo(-12.6 * s + wx * 0.9, -11.0 * s + wy * 0.3);
+  ctx.lineTo(-8.2 * s + wx * 0.5, -15.4 * s);
+  ctx.lineTo(-2.5 * s + wx * 0.3, -17.2 * s + wy * 0.4);
+  ctx.lineTo(2.5 * s + wx * 0.3, -17.2 * s + wy * 0.4);
+  ctx.lineTo(8.2 * s + wx * 0.5, -15.4 * s);
+  ctx.lineTo(12.6 * s + wx * 0.9, -11.0 * s + wy * 0.3);
+  ctx.lineTo(11.4 * s + wx * 0.6, -6.5 * s);
+  ctx.lineTo(13.2 * s + wx * 1.1, -1.8 * s + wy * 0.4);
+  ctx.lineTo(10.8 * s + wx * 0.7, 3.0 * s);
+  ctx.lineTo(12.2 * s + wx * 1.25, 6.2 * s + wy * 0.5);
+  ctx.lineTo(9.5 * s + wx * 1.1, 9.8 * s + wy * 0.7);
+  ctx.lineTo(6.2 * s + wx * 0.6, 8.2 * s + wy * 0.4);
+  ctx.lineTo(-6.2 * s + wx * 0.6, 8.2 * s + wy * 0.4);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
@@ -323,18 +326,28 @@ function drawTitanHead(cx, cy, s, isRoaring) {
     ctx.ellipse(ex, eyeY + 0.15 * s, 3.1 * s, 2.3 * s, side * -0.18, 0, Math.PI * 2);
     ctx.fill();
 
-    // Glowing emerald-green Titan eye (cached gradient, stares fiercely!)
+    // Glowing emerald-green Titan eye (cached gradient, intensifies on roar/strike!)
     const gx = ex - side * 0.2 * s;
     const gy = eyeY + 0.2 * s;
+    const pulse = 1.0 + boost * (0.28 + 0.14 * Math.sin(elapsedTime * 34));
     ctx.translate(gx, gy);
+    if (boost > 0.05) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(0.65, boost * 0.45);
+      ctx.fillStyle = '#42f5ad';
+      ctx.beginPath();
+      ctx.arc(0, 0, 3.4 * s * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
     ctx.fillStyle = getTitanEyeGradient(s);
     ctx.beginPath();
-    ctx.arc(0, 0, 2.5 * s, 0, Math.PI * 2);
+    ctx.arc(0, 0, 2.5 * s * Math.min(1.25, pulse), 0, Math.PI * 2);
     ctx.fill();
     ctx.translate(-gx, -gy);
 
     // Crisp bright emerald iris disc
-    ctx.fillStyle = '#52ffba';
+    ctx.fillStyle = boost > 0.2 ? '#8affd4' : '#52ffba';
     ctx.beginPath();
     ctx.ellipse(gx, gy, 1.55 * s, 1.45 * s, 0, 0, Math.PI * 2);
     ctx.fill();
@@ -502,37 +515,37 @@ function drawTitanHead(cx, cy, s, isRoaring) {
   ctx.lineWidth = ink * 0.85;
   ctx.lineJoin = 'round';
   ctx.beginPath();
-  // Long wild left side locks draping past cheeks
+  // Long wild left side locks draping past cheeks (whipping with motion!)
   ctx.moveTo(-10.0 * s, -1.5 * s);
-  ctx.lineTo(-10.6 * s, 7.2 * s);
-  ctx.lineTo(-8.8 * s, 4.2 * s);
-  ctx.lineTo(-8.0 * s, 6.0 * s);
+  ctx.lineTo(-10.6 * s + wx * 1.15, 7.2 * s + wy * 0.7);
+  ctx.lineTo(-8.8 * s + wx * 0.7, 4.2 * s + wy * 0.4);
+  ctx.lineTo(-8.0 * s + wx * 0.9, 6.0 * s + wy * 0.5);
   ctx.lineTo(-7.2 * s, -1.0 * s);
 
   // Shaggy parted bangs partially framing glowing green eyes
-  ctx.lineTo(-5.2 * s, 2.6 * s);
+  ctx.lineTo(-5.2 * s + wx * 0.65, 2.6 * s + wy * 0.4);
   ctx.lineTo(-3.8 * s, -2.5 * s);
-  ctx.lineTo(-1.8 * s, 2.0 * s);
+  ctx.lineTo(-1.8 * s + wx * 0.6, 2.0 * s + wy * 0.4);
   ctx.lineTo(0.0 * s, -4.4 * s); // fierce center part
-  ctx.lineTo(1.8 * s, 2.2 * s);
+  ctx.lineTo(1.8 * s + wx * 0.6, 2.2 * s + wy * 0.4);
   ctx.lineTo(3.8 * s, -2.4 * s);
-  ctx.lineTo(5.4 * s, 2.5 * s);
+  ctx.lineTo(5.4 * s + wx * 0.65, 2.5 * s + wy * 0.4);
   ctx.lineTo(7.2 * s, -1.0 * s);
 
   // Long wild right side locks draping past cheeks
-  ctx.lineTo(8.0 * s, 6.0 * s);
-  ctx.lineTo(8.8 * s, 4.2 * s);
-  ctx.lineTo(10.6 * s, 7.2 * s);
+  ctx.lineTo(8.0 * s + wx * 0.9, 6.0 * s + wy * 0.5);
+  ctx.lineTo(8.8 * s + wx * 0.7, 4.2 * s + wy * 0.4);
+  ctx.lineTo(10.6 * s + wx * 1.15, 7.2 * s + wy * 0.7);
   ctx.lineTo(10.0 * s, -1.5 * s);
 
   // Crown & spiky mane tufts
-  ctx.quadraticCurveTo(12.2 * s, -9.0 * s, 9.6 * s, -14.2 * s);
-  ctx.lineTo(7.4 * s, -17.4 * s);
-  ctx.lineTo(5.6 * s, -14.6 * s);
-  ctx.quadraticCurveTo(0, -17.0 * s, -5.6 * s, -14.6 * s);
-  ctx.lineTo(-7.6 * s, -17.2 * s);
-  ctx.lineTo(-9.6 * s, -14.2 * s);
-  ctx.quadraticCurveTo(-12.2 * s, -9.0 * s, -10.0 * s, -1.5 * s);
+  ctx.quadraticCurveTo(12.2 * s + wx * 0.4, -9.0 * s, 9.6 * s + wx * 0.5, -14.2 * s);
+  ctx.lineTo(7.4 * s + wx * 1.1, -17.4 * s + wy * 0.6);
+  ctx.lineTo(5.6 * s + wx * 0.4, -14.6 * s);
+  ctx.quadraticCurveTo(0, -17.0 * s, -5.6 * s + wx * 0.4, -14.6 * s);
+  ctx.lineTo(-7.6 * s + wx * 1.1, -17.2 * s + wy * 0.6);
+  ctx.lineTo(-9.6 * s + wx * 0.5, -14.2 * s);
+  ctx.quadraticCurveTo(-12.2 * s + wx * 0.4, -9.0 * s, -10.0 * s, -1.5 * s);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
@@ -720,10 +733,48 @@ function drawAttackTitan(s) {
     rHandY = (-8.5 - 4.5 * roarEnv) * ts;
   }
 
+  // Transformation elastic burst scale-up & revert dissolve
+  let revealScale = 1.0;
+  let revealAlpha = 1.0;
+  let goldenFlash = 0;
+  if (eren.titanState === TITAN_TRANSFORMING) {
+    const u = Math.max(0, Math.min(1, (eren.titanTransTimer - 0.22) / 0.50));
+    // Elastic overshoot: 0.52 -> 1.09 -> 1.0
+    revealScale = 0.52 + 0.48 * u + Math.sin(u * Math.PI) * 0.14;
+    goldenFlash = Math.max(0, 1 - u * 1.25);
+    isRoaring = true;
+  } else if (eren.titanState === TITAN_REVERTING) {
+    const u = Math.max(0, Math.min(1, eren.titanTransTimer / 0.50));
+    revealScale = 1.0 - 0.38 * u;
+    revealAlpha = Math.max(0, 1.0 - u * 1.15);
+  }
+
+  // Micro screen-shake during heavy Titan impacts / roars
+  const shakeAmt = (eren.screenShake || 0) * 5.2 * s;
+  const shakeX = shakeAmt > 0.05 ? Math.sin(elapsedTime * 95) * shakeAmt : 0;
+  const shakeY = shakeAmt > 0.05 ? Math.cos(elapsedTime * 112) * shakeAmt * 0.8 : 0;
+
+  // Dynamic hair whip & eye glow intensity
+  const hairWhipX = -bodyTilt * 7.5 + (isRoaring ? Math.sin(elapsedTime * 42) * 1.1 : 0);
+  const hairWhipY = (eren.titanJumpY > 1 ? Math.min(2.6, eren.titanJumpY / (20 * s)) : 0) + (squashY < 0.92 ? 1.5 : 0);
+  const eyeBoost = ((action === TITAN_ACT_PUNCH || action === TITAN_ACT_KICK) && p > 0.35 && p < 0.72) ? 0.75 : (eren.roarPulse || 0);
+
   ctx.save();
-  ctx.translate(eren.x, eren.y + bodyY);
-  ctx.scale(eren.facing * squashX, squashY);
+  ctx.globalAlpha = revealAlpha;
+  ctx.translate(eren.x + shakeX, eren.y + bodyY + shakeY);
+  ctx.scale(eren.facing * squashX * revealScale, squashY * revealScale);
   ctx.rotate(bodyTilt);
+
+  // Golden lightning transformation silhouette halo behind Titan as he emerges
+  if (goldenFlash > 0.02) {
+    ctx.save();
+    ctx.globalAlpha = goldenFlash * 0.7;
+    ctx.fillStyle = '#ffe53b';
+    ctx.beginPath();
+    ctx.ellipse(0, -18 * ts, 16 * ts, 24 * ts, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
 
   // 1. Muscular Legs & Bare Feet
   // Left leg
@@ -751,9 +802,9 @@ function drawAttackTitan(s) {
   drawTitanFist(rHandX, rHandY, ts, ink, 1);
 
   // 4. Attack Titan Head
-  eren.headWorldX = eren.x;
-  eren.headWorldY = eren.y + bodyY + headY;
-  drawTitanHead(headX, headY, ts, isRoaring);
+  eren.headWorldX = eren.x + shakeX;
+  eren.headWorldY = eren.y + bodyY + shakeY + headY * revealScale;
+  drawTitanHead(headX, headY, ts, isRoaring, hairWhipX, hairWhipY, eyeBoost);
 
   ctx.restore();
 }

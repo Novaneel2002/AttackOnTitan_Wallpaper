@@ -115,8 +115,9 @@ function isSceneHighMotion() {
   if (eren.titanState !== TITAN_NONE || activeSmokeCount > 0 || titanBoltTimer > 0 || titanFlashAlpha > 0) return true;
   if ((isPointerActive && timeSinceMouseMove < 0.5) || audioEnergy > 0.01) return true;
   if (config.showEren) {
-    if (eren.isSwinging || eren.preJumpTimer > 0 || eren.flipTimer > 0 || eren.thrustT > 0 || eren.bladeHold > 0 || eren.mode !== MODE_PERCH) return true;
+    if (eren.isSwinging || eren.preJumpTimer > 0 || eren.thrustT > 0 || eren.bladeHold > 0 || eren.mode !== MODE_PERCH) return true;
     if (isLmbHeld || trailingCablesActive() || eren.windBlend > 0.02 || eren.reactionBlend > 0.03 || eren.landSquash > 0 || eren.cursorNear > 0.35) return true;
+    if (eren.screenShake > 0.01 || eren.titanMarkTimer > 0 || activeSparkCount > 0 || activeRingCount > 0) return true;
     if (clickEffect.active || activeDustCount > 0 || (typeof activeSteamCount !== 'undefined' && activeSteamCount > 0)) return true;
   }
   return !areCardsSettled();
@@ -319,8 +320,8 @@ function renderFrame(now) {
     updateEren(dt);
 
     const wideFxActive = eren.isSwinging || eren.titanState !== TITAN_NONE ||
-      eren.reactionBlend > 0.02 || clickEffect.active ||
-      activeDustCount > 0 || activeSteamCount > 0 ||
+      eren.reactionBlend > 0.02 || clickEffect.active || eren.screenShake > 0.01 ||
+      activeDustCount > 0 || activeSteamCount > 0 || activeSparkCount > 0 || activeRingCount > 0 ||
       activeSmokeCount > 0 || titanBoltTimer > 0 || titanFlashAlpha > 0 ||
       trailingCablesActive() || anyHookActive();
 
@@ -338,9 +339,9 @@ function renderFrame(now) {
       hasPrevFxRect = false;
     } else {
       const s = uniformScale * config.erenScale;
-      const padX = 56 * s;
-      const padTop = 74 * s;
-      const padBot = 62 * s;
+      const padX = (eren.perchMode === PERCH_SIDE_EDGE ? 84 : 64) * s;
+      const padTop = 82 * s;
+      const padBot = (eren.perchMode === PERCH_BOTTOM_UPSIDE_DOWN || eren.deepIdleBlend > 0.05 ? 86 : 64) * s;
       const x0 = Math.max(0, Math.floor(eren.x - padX));
       const y0 = Math.max(0, Math.floor(eren.y - padTop));
       const x1 = Math.min(viewWidth, Math.ceil(eren.x + padX));

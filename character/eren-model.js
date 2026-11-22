@@ -585,7 +585,8 @@ function drawSurveyCorpsCloak(backX, backY, s, ink, facing, windBlend, speed, is
   ctx.save();
   ctx.translate(backX, backY);
 
-  const flutter = Math.sin(elapsedTime * 14.0 + speed * 0.01) * (3.0 + speed * 0.009) * s;
+  const audioBoost = (typeof audioEnergy !== 'undefined' ? audioEnergy : 0);
+  const flutter = Math.sin(elapsedTime * (14.0 + audioBoost * 6.0) + speed * 0.01) * (3.0 + speed * 0.009 + audioBoost * 3.8) * s;
   const windOffset = -facing * windBlend * 9.5 * s;
 
   // Cloak body (Forest green)
@@ -661,6 +662,9 @@ function drawErenHead(cx, cy, s, facingScale, squint, isShouting, isSleepy, isAn
   const heroic = expr === 'heroic';
   const fierce = expr === 'fierce';
   const serene = expr === 'serene';
+  const yawn = expr === 'yawn';
+  const hx = (eren.hairLagX || 0) * s;
+  const hy = (eren.hairLagY || 0) * s;
 
   // =========================================================================
   // 1. BACK HAIR LAYER (Behind face and ears, giving head full volume)
@@ -671,25 +675,25 @@ function drawErenHead(cx, cy, s, facingScale, squint, isShouting, isSleepy, isAn
   ctx.lineJoin = 'round';
 
   ctx.beginPath();
-  // Spikes flaring behind the neck and lower ears
-  ctx.moveTo(-7.5 * s, 6.5 * s);
-  ctx.lineTo(-9.8 * s, 4.5 * s);
-  ctx.lineTo(-9.0 * s, 2.0 * s);
-  ctx.lineTo(-11.5 * s, -1.0 * s);
-  ctx.lineTo(-10.2 * s, -4.5 * s);
-  ctx.lineTo(-12.4 * s, -8.5 * s);
-  ctx.lineTo(-9.5 * s, -12.5 * s);
-  ctx.lineTo(-6.5 * s, -15.5 * s);
-  ctx.lineTo(-2.0 * s, -16.8 * s);
-  ctx.lineTo(2.0 * s, -16.8 * s);
-  ctx.lineTo(6.5 * s, -15.5 * s);
-  ctx.lineTo(9.5 * s, -12.5 * s);
-  ctx.lineTo(12.4 * s, -8.5 * s);
-  ctx.lineTo(10.2 * s, -4.5 * s);
-  ctx.lineTo(11.5 * s, -1.0 * s);
-  ctx.lineTo(9.0 * s, 2.0 * s);
-  ctx.lineTo(9.8 * s, 4.5 * s);
-  ctx.lineTo(7.5 * s, 6.5 * s);
+  // Spikes flaring behind the neck and lower ears (with subtle secondary motion)
+  ctx.moveTo(-7.5 * s + hx * 0.5, 6.5 * s + hy * 0.3);
+  ctx.lineTo(-9.8 * s + hx * 0.8, 4.5 * s + hy * 0.4);
+  ctx.lineTo(-9.0 * s + hx * 0.5, 2.0 * s);
+  ctx.lineTo(-11.5 * s + hx * 0.9, -1.0 * s + hy * 0.3);
+  ctx.lineTo(-10.2 * s + hx * 0.6, -4.5 * s);
+  ctx.lineTo(-12.4 * s + hx * 1.0, -8.5 * s + hy * 0.4);
+  ctx.lineTo(-9.5 * s + hx * 0.6, -12.5 * s);
+  ctx.lineTo(-6.5 * s + hx * 0.8, -15.5 * s + hy * 0.5);
+  ctx.lineTo(-2.0 * s + hx * 0.4, -16.8 * s + hy * 0.4);
+  ctx.lineTo(2.0 * s + hx * 0.4, -16.8 * s + hy * 0.4);
+  ctx.lineTo(6.5 * s + hx * 0.8, -15.5 * s + hy * 0.5);
+  ctx.lineTo(9.5 * s + hx * 0.6, -12.5 * s);
+  ctx.lineTo(12.4 * s + hx * 1.0, -8.5 * s + hy * 0.4);
+  ctx.lineTo(10.2 * s + hx * 0.6, -4.5 * s);
+  ctx.lineTo(11.5 * s + hx * 0.9, -1.0 * s + hy * 0.3);
+  ctx.lineTo(9.0 * s + hx * 0.5, 2.0 * s);
+  ctx.lineTo(9.8 * s + hx * 0.8, 4.5 * s + hy * 0.4);
+  ctx.lineTo(7.5 * s + hx * 0.5, 6.5 * s + hy * 0.3);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
@@ -743,6 +747,31 @@ function drawErenHead(cx, cy, s, facingScale, squint, isShouting, isSleepy, isAn
   ctx.arc(0, 3.2 * s, 0.65 * s, 0, Math.PI * 2);
   ctx.fill();
 
+  // Iconic Titan Shifter under-eye marks (post-revert fade or intense 3rd/4th click warning)
+  const markAlpha = eren.titanMarkTimer > 0
+    ? Math.min(0.88, (eren.titanMarkTimer / 2.2) * 0.88)
+    : (angry && eren.erenClickCount >= 3 ? 0.55 : 0);
+  if (markAlpha > 0.02) {
+    ctx.save();
+    ctx.globalAlpha = markAlpha;
+    ctx.strokeStyle = '#6c2420';
+    ctx.lineWidth = 0.72 * s;
+    ctx.lineCap = 'round';
+    for (let side = -1; side <= 1; side += 2) {
+      const mx = side * 4.8 * s;
+      const my = 4.3 * s;
+      ctx.beginPath();
+      ctx.moveTo(mx - side * 1.4 * s, my - 0.2 * s);
+      ctx.lineTo(mx - side * 0.4 * s, my + 2.3 * s);
+      ctx.moveTo(mx + side * 0.2 * s, my - 0.1 * s);
+      ctx.lineTo(mx + side * 1.1 * s, my + 2.4 * s);
+      ctx.moveTo(mx + side * 1.5 * s, my - 0.3 * s);
+      ctx.lineTo(mx + side * 2.1 * s, my + 1.8 * s);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   // =========================================================================
   // 4. EYES: GIANT EMERALD-TEAL ANIME EYES (The Soul of Eren Yeager!)
   // =========================================================================
@@ -753,6 +782,23 @@ function drawErenHead(cx, cy, s, facingScale, squint, isShouting, isSleepy, isAn
 
   for (let side = -1; side <= 1; side += 2) {
     const ex = side * eyeSpacing;
+
+    if (yawn) {
+      // Cozy squeezed-shut yawning eyes (> <) with tiny sleepy tear glint
+      ctx.strokeStyle = '#120d0a';
+      ctx.lineWidth = 1.45 * s;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(ex - side * 2.8 * s, eyeY - 0.8 * s);
+      ctx.lineTo(ex + side * 0.6 * s, eyeY + 0.8 * s);
+      ctx.lineTo(ex - side * 2.6 * s, eyeY + 2.1 * s);
+      ctx.stroke();
+      ctx.fillStyle = '#a8e0ff';
+      ctx.beginPath();
+      ctx.arc(ex + side * 2.8 * s, eyeY + 1.9 * s, 0.85 * s, 0, Math.PI * 2);
+      ctx.fill();
+      continue;
+    }
 
     if (isSleepy) {
       // Closed resting anime eye with relaxed lash curve
@@ -1043,7 +1089,22 @@ function drawErenHead(cx, cy, s, facingScale, squint, isShouting, isSleepy, isAn
   // =========================================================================
   // 6. MOUTH: DYNAMIC EXPRESSIONS MATCHING EACH REACTION!
   // =========================================================================
-  if (happy || hopeful) {
+  if (yawn) {
+    // Cozy wide-open yawning oval mouth
+    ctx.save();
+    ctx.fillStyle = '#a83c42';
+    ctx.strokeStyle = '#120d0a';
+    ctx.lineWidth = ink * 0.75;
+    ctx.beginPath();
+    ctx.ellipse(0, 6.7 * s, 2.3 * s, 2.8 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#f28b94';
+    ctx.beginPath();
+    ctx.ellipse(0, 8.2 * s, 1.4 * s, 0.9 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  } else if (happy || hopeful) {
     // Big cheerful open laughing/excited smile (Sasha / Armin)
     ctx.save();
     ctx.fillStyle = '#c9494e';
@@ -1188,41 +1249,41 @@ function drawErenHead(cx, cy, s, facingScale, squint, isShouting, isSleepy, isAn
   ctx.lineJoin = 'round';
 
   ctx.beginPath();
-  // 1. Left sideburn framing face
+  // 1. Left sideburn framing face (with subtle secondary-motion lag)
   ctx.moveTo(-9.5 * s, 0.8 * s);
-  ctx.lineTo(-8.8 * s, 3.8 * s);   // left long sideburn tip
-  ctx.lineTo(-8.2 * s, 1.2 * s);
+  ctx.lineTo(-8.8 * s + hx * 0.85, 3.8 * s + hy * 0.5);   // left long sideburn tip
+  ctx.lineTo(-8.2 * s + hx * 0.35, 1.2 * s);
 
   // 2. Left curtain bangs (sweeping across forehead from center part)
   ctx.lineTo(-7.2 * s, -1.5 * s);
-  ctx.lineTo(-5.6 * s, 1.6 * s);   // left outer bang clump
-  ctx.lineTo(-4.2 * s, -2.6 * s);
-  ctx.lineTo(-2.2 * s, 1.2 * s);   // left center bang clump
-  ctx.lineTo(-0.6 * s, -1.8 * s);  // delicate center strand
-  ctx.lineTo(0.2 * s, -4.5 * s);   // CENTER PARTING (Forehead visible in center!)
+  ctx.lineTo(-5.6 * s + hx * 0.75, 1.6 * s + hy * 0.45);   // left outer bang clump
+  ctx.lineTo(-4.2 * s + hx * 0.25, -2.6 * s);
+  ctx.lineTo(-2.2 * s + hx * 0.75, 1.2 * s + hy * 0.45);   // left center bang clump
+  ctx.lineTo(-0.6 * s + hx * 0.2, -1.8 * s);               // delicate center strand
+  ctx.lineTo(0.2 * s, -4.5 * s);                           // CENTER PARTING
 
   // 3. Right curtain bangs (sweeping across forehead from center part)
-  ctx.lineTo(1.0 * s, -1.6 * s);
-  ctx.lineTo(2.4 * s, 1.2 * s);    // right center bang clump
-  ctx.lineTo(4.4 * s, -2.5 * s);
-  ctx.lineTo(5.8 * s, 1.6 * s);    // right outer bang clump
+  ctx.lineTo(1.0 * s + hx * 0.2, -1.6 * s);
+  ctx.lineTo(2.4 * s + hx * 0.75, 1.2 * s + hy * 0.45);    // right center bang clump
+  ctx.lineTo(4.4 * s + hx * 0.25, -2.5 * s);
+  ctx.lineTo(5.8 * s + hx * 0.75, 1.6 * s + hy * 0.45);    // right outer bang clump
   ctx.lineTo(7.4 * s, -1.4 * s);
 
   // 4. Right sideburn framing face
-  ctx.lineTo(8.4 * s, 1.2 * s);
-  ctx.lineTo(9.0 * s, 3.8 * s);    // right long sideburn tip
+  ctx.lineTo(8.4 * s + hx * 0.35, 1.2 * s);
+  ctx.lineTo(9.0 * s + hx * 0.85, 3.8 * s + hy * 0.5);     // right long sideburn tip
   ctx.lineTo(9.6 * s, 0.8 * s);
 
-  // 5. Crown & outer layered spikes
-  ctx.quadraticCurveTo(11.8 * s, -8.5 * s, 9.8 * s, -13.5 * s);
-  ctx.lineTo(8.4 * s, -17.2 * s);  // top-right cowlick spike
-  ctx.lineTo(7.0 * s, -13.8 * s);
+  // 5. Crown & outer layered spikes (cowlicks lag with velocity/wind)
+  ctx.quadraticCurveTo(11.8 * s + hx * 0.4, -8.5 * s, 9.8 * s + hx * 0.5, -13.5 * s);
+  ctx.lineTo(8.4 * s + hx * 1.15, -17.2 * s + hy * 0.7);   // top-right cowlick spike
+  ctx.lineTo(7.0 * s + hx * 0.4, -13.8 * s);
   ctx.quadraticCurveTo(3.5 * s, -15.8 * s, -1.8 * s, -15.4 * s);
-  ctx.lineTo(-4.8 * s, -16.8 * s); // top-left tuft
-  ctx.lineTo(-5.4 * s, -14.6 * s);
-  ctx.quadraticCurveTo(-9.0 * s, -13.8 * s, -10.8 * s, -11.2 * s);
-  ctx.lineTo(-9.4 * s, -10.0 * s);
-  ctx.quadraticCurveTo(-11.5 * s, -5.8 * s, -9.5 * s, 0.8 * s);
+  ctx.lineTo(-4.8 * s + hx * 1.1, -16.8 * s + hy * 0.65);  // top-left tuft
+  ctx.lineTo(-5.4 * s + hx * 0.4, -14.6 * s);
+  ctx.quadraticCurveTo(-9.0 * s + hx * 0.4, -13.8 * s, -10.8 * s + hx * 0.8, -11.2 * s + hy * 0.3);
+  ctx.lineTo(-9.4 * s + hx * 0.3, -10.0 * s);
+  ctx.quadraticCurveTo(-11.5 * s + hx * 0.4, -5.8 * s, -9.5 * s, 0.8 * s);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();

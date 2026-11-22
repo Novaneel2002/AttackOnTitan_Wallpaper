@@ -45,7 +45,7 @@ let burstT = 0;
 let burstDX = 0;
 let burstDY = 0;
 let slashWanted = false;
-const SLASH_CARDS = new Set(); // card indices that count as "Titan" cards (fill in when images exist)
+const SLASH_CARDS = new Set([3, 7, 8]); // Titan Shifter cards: Pieck (3), Annie (7), Reiner (8)
 
 function setSlashWanted(idx) {
   slashWanted = SLASH_CARDS.has(idx) || Math.random() < 0.2;
@@ -630,6 +630,9 @@ function odmStep(h) {
           hkLen[i] = Math.max(24 * us, d + (i === 1 ? 0.10 * odmJump : 0));
           hkLen0[i] = hkLen[i];
           hkTh0[i] = Math.atan2(e.x - hkAx[i], e.y - hkAy[i]);
+          if (typeof spawnAnchorSparks === 'function') {
+            spawnAnchorSparks(hkAx[i], hkAy[i], 3);
+          }
         }
       }
     }

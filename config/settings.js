@@ -27,7 +27,8 @@ const config = {
   cableSpeed: 1.0,
   showSteam: true,
   powerSaver: false,
-  deepIdleDelay: 18.0, // 18s -> deep idle (yawn, lie flat, or hang upside-down on web)
+  deepIdleDelay: 18.0, // 18s -> deep idle (yawn, lie flat, or hang on cable swing)
+  autoRoam: true,      // Autonomous ODM roaming between cards when idle
 };
 
 const IDLE_SCALE = 1.0;
