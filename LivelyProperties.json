@@ -1,0 +1,68 @@
+{
+  "showEren": {
+    "type": "checkbox",
+    "value": true,
+    "text": "Show Chibi Eren"
+  },
+  "erenScale": {
+    "type": "slider",
+    "value": 1.15,
+    "min": 0.7,
+    "max": 1.8,
+    "step": 0.05,
+    "text": "Eren Size"
+  },
+  "magnetStrength": {
+    "type": "slider",
+    "value": 0.22,
+    "min": 0.05,
+    "max": 0.45,
+    "step": 0.01,
+    "text": "Magnetic Zoom Strength"
+  },
+  "magnetRadius": {
+    "type": "slider",
+    "value": 185,
+    "min": 100,
+    "max": 320,
+    "step": 5,
+    "text": "Magnetic Field Radius"
+  },
+  "grainAmount": {
+    "type": "slider",
+    "value": 0.085,
+    "min": 0,
+    "max": 0.22,
+    "step": 0.005,
+    "text": "Film Grain / Halftone Intensity"
+  },
+  "idleSitDelay": {
+    "type": "slider",
+    "value": 5,
+    "min": 2,
+    "max": 15,
+    "step": 0.5,
+    "text": "Sit & Dangle Legs Delay (sec)"
+  },
+  "gasPower": {
+    "type": "slider",
+    "value": 1.0,
+    "min": 0.5,
+    "max": 2.0,
+    "step": 0.1,
+    "text": "ODM Gas Power"
+  },
+  "cableSpeed": {
+    "type": "slider",
+    "value": 1.0,
+    "min": 0.5,
+    "max": 2.0,
+    "step": 0.1,
+    "text": "ODM Cable Reel Speed"
+  },
+  "showSteam": {
+    "type": "checkbox",
+    "value": true,
+    "text": "Show Gas Steam"
+  }
+}

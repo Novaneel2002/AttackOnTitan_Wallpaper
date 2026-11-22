@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Eren Yeager Interactive Desktop Wallpaper</title>
+  <link rel="stylesheet" href="./styles/eren-fx.css" />
+</head>
+
+<body>
+  <canvas id="wallpaperCanvas"></canvas>
+
+  <!-- 1. Configuration & Global State -->
+  <script src="./config/settings.js"></script>
+
+  <!-- 2. Character Behaviour State & Constants -->
+  <script src="./behaviour/eren-state.js"></script>
+
+  <!-- 3. Image Block Layout, Caching, Rendering & Magnetic Field -->
+  <script src="./image-block/card-renderer.js"></script>
+  <script src="./image-block/cards-data.js"></script>
+  <script src="./image-block/magnetic-field.js"></script>
+
+  <!-- 4. Visual & Particle Effects -->
+  <script src="./effects/particles.js"></script>
+
+  <!-- 5. ODM Cable Visuals, Card-to-Card Cables & ODM Gear Physics -->
+  <script src="./traversal/cable-visuals.js"></script>
+  <script src="./traversal/cable.js"></script>
+  <script src="./traversal/odm-physics.js"></script>
+
+  <!-- 6. Character Renderer -->
+  <script src="./character/eren-model.js"></script>
+  <script src="./character/eren-renderer.js"></script>
+
+  <!-- 7. Character Behaviour Controller & Reactions -->
+  <script src="./behaviour/eren-behaviour.js"></script>
+
+  <!-- 8. Core Render Loop & Adaptive Frame Pacing -->
+  <script src="./core/loop.js"></script>
+
+  <!-- 9. Input, then start -->
+  <script src="./input/pointer-events.js"></script>
+  <script>startWallpaper();</script>
+</body>
+
+</html>
