@@ -168,7 +168,12 @@ function updateMagneticTargets(dt) {
     lastStrongestField = strongestField;
   }
 
-  // Hover dwell debounce (180ms default; 40ms while holding LMB so multi-photo webbing is responsive)
+  // Hover dwell debounce (disabled while in Attack Titan mode — he refuses to obey or leave his block!)
+  if (eren.titanState !== TITAN_NONE) {
+    eren.hoverCandidateCard = -1;
+    eren.hoverDwellTimer = 0;
+    return;
+  }
   const minFieldForHover = isLmbHeld ? 0.24 : 0.32;
   const requiredDwell = isLmbHeld ? 0.04 : config.hoverDwellTime;
   if (config.showEren && strongestCard !== -1 && strongestField > minFieldForHover && strongestCard !== eren.currentCard) {

@@ -6,7 +6,7 @@
   },
   "erenScale": {
     "type": "slider",
-    "value": 1.55,
+    "value": 1.0,
     "min": 0.5,
     "max": 3.0,
     "step": 0.05,

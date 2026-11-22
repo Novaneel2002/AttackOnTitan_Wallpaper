@@ -69,6 +69,14 @@ function rebuildCardCache(card) {
   } else {
     cCtx.fillStyle = '#f2f2f2';
     cCtx.fillRect(0, 0, targetW, targetH);
+
+    // Draw bold card index number (0..10) so you know which slot in cards-data.js maps to each box
+    const fontSize = Math.max(16, Math.round(Math.min(targetW, targetH) * 0.42));
+    cCtx.fillStyle = '#222222';
+    cCtx.font = '800 ' + fontSize + 'px system-ui, -apple-system, Segoe UI, sans-serif';
+    cCtx.textAlign = 'center';
+    cCtx.textBaseline = 'middle';
+    cCtx.fillText(String(card.index), targetW * 0.5, targetH * 0.5);
   }
 
   // Bake the risograph / film grain overlay into the cache once (saves a full-card

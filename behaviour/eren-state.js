@@ -31,6 +31,18 @@ const MODE_SWING = 2;     // hooks anchored, winching, gravity pendulum
 const MODE_BALLISTIC = 3; // hooks released, gas-guided arc to the perch
 const MODE_LAND = 4;
 
+// Attack Titan transformation & rampage states
+const TITAN_NONE = 0;
+const TITAN_TRANSFORMING = 1; // 5th click: yellow thunderbolts + white clouds -> Attack Titan
+const TITAN_ACTIVE = 2;       // 2x Attack Titan rampaging on current block (ignores mouse)
+const TITAN_REVERTING = 3;    // After 10s idle: heavy smoke clouds -> back to human Eren
+
+const TITAN_ACT_PUNCH = 0;
+const TITAN_ACT_KICK = 1;
+const TITAN_ACT_JUMP = 2;
+const TITAN_ACT_ROAR = 3;
+const TITAN_ACT_LEAP = 4; // Random furious leap across blocks (1-2 times per rampage)
+
 // Time of day (checked once a minute, never inside the render loop)
 const TOD_DAY = 0;
 const TOD_NIGHT = 1;   // 23:00 - 05:00 -> drowsy, falls asleep sooner
@@ -47,20 +59,33 @@ function getDeepIdleDelay() {
   return timeOfDayMode === TOD_NIGHT ? Math.min(config.deepIdleDelay, 9.0) : config.deepIdleDelay;
 }
 
-// Hover reactions for special cards (indexed by card index)
+// Hover reactions for each Attack on Titan character card (indexed by card 0..10)
 const REACT_NONE = 0;
-const REACT_GIMME = 1;
-const REACT_AWESOME = 2;
-const REACT_CAMERA = 3;
-const REACT_HELLYES = 4;
-const REACT_OWW = 5;
-const REACT_SWEAT = 6;
-const REACT_MUSIC = 7;
-const REACT_HEARTS = 8;
-const REACT_CONFUSED = 9;
-const REACT_OUCH = 10;
-const REACT_CHILL = 11;
-const CARD_REACTIONS = new Int8Array(11); // all REACT_NONE until the AOT images exist
+const REACT_ERWIN = 1;     // 0: Commander Erwin -> "SASAGEYO!"
+const REACT_FLOCH = 2;     // 1: Floch -> "FOR ELDIA!"
+const REACT_MIKASA = 3;    // 2: Mikasa -> Floating hearts + "MIKASA..."
+const REACT_PIECK = 4;     // 3: Pieck (hands up) -> "HANDS UP!"
+const REACT_ARMIN = 5;     // 4: Armin -> Sweat drop + "THE SEA!"
+const REACT_EREN = 6;      // 5: Season 4 Eren -> "TATAKAE!"
+const REACT_SASHA = 7;     // 6: Sasha -> "MEAT!!"
+const REACT_ANNIE = 8;     // 7: Annie laughing -> Sweat drop + "ANNIE?!"
+const REACT_REINER = 9;    // 8: Depressed Reiner -> "SIT DOWN, REINER."
+const REACT_LEVI = 10;     // 9: Captain Levi glare -> Sweat drop + "CAPTAIN!"
+const REACT_YMIR = 11;     // 10: Founder Ymir -> "YOU ARE FREE."
+
+const CARD_REACTIONS = new Int8Array([
+  REACT_ERWIN,   // 0: Image0.jpg (Erwin)
+  REACT_FLOCH,   // 1: Image1.jpg (Floch)
+  REACT_MIKASA,  // 2: Image2.jpg (Mikasa)
+  REACT_PIECK,   // 3: Image3.jpg (Pieck)
+  REACT_ARMIN,   // 4: Image4.jpg (Armin)
+  REACT_EREN,    // 5: Image5.jpg (Eren S4)
+  REACT_SASHA,   // 6: Image6.jpg (Sasha)
+  REACT_ANNIE,   // 7: Image7.jpg (Annie)
+  REACT_REINER,  // 8: Image8.jpg (Reiner)
+  REACT_LEVI,    // 9: Image9.jpg (Levi)
+  REACT_YMIR     // 10: image10.jpg (Ymir)
+]);
 
 
 /**
@@ -146,6 +171,23 @@ const eren = {
   hipLeftWorldY: 0,
   hipRightWorldX: 0,
   hipRightWorldY: 0,
+  // Attack Titan transformation click counter (5 clicks in 5s) & rampage state
+  erenClickTimes: new Float64Array(8),
+  erenClickCount: 0,
+  titanState: TITAN_NONE,
+  titanTransTimer: 0,
+  titanIdleTimer: 0,
+  titanAction: TITAN_ACT_ROAR,
+  titanActionTimer: 0,
+  titanActionDur: 0.85,
+  titanImpactDone: false,
+  titanJumpY: 0,
+  titanSteamAccum: 0,
+  titanHopsRemaining: 0,
+  titanNextHopTime: 0,
+  titanLeapStartX: 0,
+  titanLeapStartY: 0,
+  titanLeapTargetCard: -1,
   initialized: false
 };
 

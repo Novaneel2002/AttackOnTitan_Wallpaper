@@ -62,6 +62,7 @@ function handleResize() {
  * or resting in a calm idle state (throttled to ~30 FPS to save GPU/CPU).
  */
 function isSceneHighMotion() {
+  if (eren.titanState !== TITAN_NONE || activeSmokeCount > 0 || titanBoltTimer > 0 || titanFlashAlpha > 0) return true;
   if ((isPointerActive && timeSinceMouseMove < 0.6) || eren.isSwinging || eren.preJumpTimer > 0 || eren.flipTimer > 0 || eren.thrustT > 0 || eren.bladeHold > 0 || eren.mode !== MODE_PERCH) return true;
   if (isLmbHeld || trailingCablesActive() || eren.windBlend > 0.02 || eren.reactionBlend > 0.03 || eren.landSquash > 0 || eren.cursorNear > 0.35) return true;
   if (clickEffect.active || activeDustCount > 0 || (typeof activeSteamCount !== 'undefined' && activeSteamCount > 0) || audioEnergy > 0.02) return true;

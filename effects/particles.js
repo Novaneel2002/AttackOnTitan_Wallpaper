@@ -225,3 +225,174 @@ function drawLandingDust() {
   ctx.restore();
 }
 
+// ============================================================================
+// ATTACK TITAN TRANSFORMATION VFX: Yellow Thunderbolts (5-7) & White Smoke Clouds
+// ============================================================================
+const TITAN_BOLT_MAX = 7;
+const TITAN_BOLT_SEGS = 9;
+const boltPtsX = new Float32Array(TITAN_BOLT_MAX * TITAN_BOLT_SEGS);
+const boltPtsY = new Float32Array(TITAN_BOLT_MAX * TITAN_BOLT_SEGS);
+let titanBoltCount = 0;
+let titanBoltTimer = 0;
+let titanBoltDur = 0.72;
+let titanFlashAlpha = 0;
+
+const SMOKE_POOL_SIZE = 72;
+const smokeX = new Float32Array(SMOKE_POOL_SIZE);
+const smokeY = new Float32Array(SMOKE_POOL_SIZE);
+const smokeVx = new Float32Array(SMOKE_POOL_SIZE);
+const smokeVy = new Float32Array(SMOKE_POOL_SIZE);
+const smokeRadius = new Float32Array(SMOKE_POOL_SIZE);
+const smokeGrow = new Float32Array(SMOKE_POOL_SIZE);
+const smokeAlpha = new Float32Array(SMOKE_POOL_SIZE);
+const smokeFade = new Float32Array(SMOKE_POOL_SIZE);
+const smokeTint = new Uint8Array(SMOKE_POOL_SIZE); // 0 = bright white cloud, 1 = dense steam grey-white
+let activeSmokeCount = 0;
+let smokeCursor = 0;
+
+function spawnTitanLightning(cx, cy, s) {
+  // Strictly 5 to 7 yellow thunderbolts around Eren!
+  titanBoltCount = 5 + Math.floor(Math.random() * 3); // 5, 6, or 7
+  titanBoltTimer = titanBoltDur;
+  titanFlashAlpha = 1.0;
+
+  const spreadX = 95 * s;
+  const reachY = 175 * s;
+  for (let b = 0; b < titanBoltCount; b++) {
+    const tNorm = (b / Math.max(1, titanBoltCount - 1)) - 0.5; // -0.5 .. 0.5
+    const startX = cx + tNorm * spreadX * 2.1 + (Math.random() - 0.5) * 28 * s;
+    const startY = cy - reachY * (0.75 + Math.random() * 0.45);
+    const endX = cx + (Math.random() - 0.5) * 26 * s;
+    const endY = cy - (6 + Math.random() * 24) * s;
+
+    const base = b * TITAN_BOLT_SEGS;
+    for (let k = 0; k < TITAN_BOLT_SEGS; k++) {
+      const f = k / (TITAN_BOLT_SEGS - 1);
+      const jitter = (k === 0 || k === TITAN_BOLT_SEGS - 1) ? 0 : (Math.random() - 0.5) * 26 * s;
+      boltPtsX[base + k] = startX + (endX - startX) * f + jitter;
+      boltPtsY[base + k] = startY + (endY - startY) * f + (Math.random() - 0.5) * 8 * s;
+    }
+  }
+}
+
+function spawnTitanClouds(cx, cy, count, s, isRevertSmoke) {
+  for (let n = 0; n < count; n++) {
+    const i = smokeCursor;
+    smokeCursor = (smokeCursor + 1) % SMOKE_POOL_SIZE;
+    if (activeSmokeCount < SMOKE_POOL_SIZE) activeSmokeCount++;
+
+    const ang = Math.random() * Math.PI * 2;
+    const spd = (isRevertSmoke ? (22 + Math.random() * 88) : (40 + Math.random() * 115)) * s;
+    const rOff = (Math.random() * (isRevertSmoke ? 24 : 16)) * s;
+
+    smokeX[i] = cx + Math.cos(ang) * rOff;
+    smokeY[i] = cy - (12 + Math.random() * (isRevertSmoke ? 44 : 26)) * s + Math.sin(ang) * rOff * 0.5;
+    smokeVx[i] = Math.cos(ang) * spd;
+    smokeVy[i] = Math.sin(ang) * spd * 0.65 - (isRevertSmoke ? (32 + Math.random() * 52) : (18 + Math.random() * 34)) * s;
+    smokeRadius[i] = (isRevertSmoke ? (11 + Math.random() * 14) : (9 + Math.random() * 12)) * s;
+    smokeGrow[i] = (isRevertSmoke ? (18 + Math.random() * 14) : (16 + Math.random() * 12)) * s;
+    smokeAlpha[i] = isRevertSmoke ? (0.85 + Math.random() * 0.15) : (0.78 + Math.random() * 0.2);
+    smokeFade[i] = isRevertSmoke ? (0.58 + Math.random() * 0.32) : (0.95 + Math.random() * 0.45);
+    smokeTint[i] = isRevertSmoke && (n & 1) ? 1 : 0;
+  }
+}
+
+function updateTitanEffects(dt) {
+  if (titanBoltTimer > 0) {
+    titanBoltTimer = Math.max(0, titanBoltTimer - dt);
+  }
+  if (titanFlashAlpha > 0) {
+    titanFlashAlpha = Math.max(0, titanFlashAlpha - dt * 2.2);
+  }
+  if (activeSmokeCount > 0) {
+    let alive = 0;
+    for (let i = 0; i < SMOKE_POOL_SIZE; i++) {
+      if (smokeAlpha[i] > 0.01) {
+        smokeX[i] += smokeVx[i] * dt;
+        smokeY[i] += smokeVy[i] * dt;
+        smokeVx[i] *= Math.exp(-2.6 * dt);
+        smokeVy[i] *= Math.exp(-2.0 * dt);
+        smokeRadius[i] += smokeGrow[i] * dt;
+        smokeAlpha[i] -= smokeFade[i] * dt;
+        alive++;
+      } else {
+        smokeAlpha[i] = 0;
+      }
+    }
+    activeSmokeCount = alive;
+  }
+}
+
+function drawTitanEffects() {
+  const us = uniformScale;
+
+  // 1. White clouds / dense Titan evaporation smoke
+  if (activeSmokeCount > 0) {
+    ctx.save();
+    for (let i = 0; i < SMOKE_POOL_SIZE; i++) {
+      const a = smokeAlpha[i];
+      if (a <= 0.01) continue;
+      ctx.globalAlpha = Math.min(0.92, a);
+      ctx.fillStyle = smokeTint[i] === 0 ? '#ffffff' : '#e6ecf2';
+      ctx.beginPath();
+      ctx.arc(smokeX[i], smokeY[i], smokeRadius[i], 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // 2. Golden transformation flash & 5-7 yellow thunderbolts
+  if (titanFlashAlpha > 0.01 || titanBoltTimer > 0) {
+    ctx.save();
+    const s = uniformScale * config.erenScale;
+    if (titanFlashAlpha > 0.01) {
+      const rad = 85 * s * (1.4 - titanFlashAlpha * 0.4);
+      const grad = ctx.createRadialGradient(eren.x, eren.y - 20 * s, 4 * s, eren.x, eren.y - 20 * s, rad);
+      grad.addColorStop(0.0, 'rgba(255, 252, 200, ' + (titanFlashAlpha * 0.95).toFixed(3) + ')');
+      grad.addColorStop(0.45, 'rgba(255, 224, 52, ' + (titanFlashAlpha * 0.65).toFixed(3) + ')');
+      grad.addColorStop(1.0, 'rgba(255, 170, 0, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(eren.x, eren.y - 20 * s, rad, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (titanBoltTimer > 0 && titanBoltCount > 0) {
+      const env = Math.min(1, titanBoltTimer / (titanBoltDur * 0.45));
+      const flicker = 0.72 + 0.28 * Math.sin(elapsedTime * 75);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      for (let b = 0; b < titanBoltCount; b++) {
+        const base = b * TITAN_BOLT_SEGS;
+        const jx = (Math.sin(elapsedTime * 60 + b * 4.1)) * 3.5 * us;
+
+        // Outer golden lightning aura
+        ctx.globalAlpha = env * flicker * 0.48;
+        ctx.strokeStyle = '#ffae00';
+        ctx.lineWidth = Math.max(4.5, 6.2 * us);
+        ctx.beginPath();
+        ctx.moveTo(boltPtsX[base] + jx, boltPtsY[base]);
+        for (let k = 1; k < TITAN_BOLT_SEGS; k++) {
+          ctx.lineTo(boltPtsX[base + k] + jx, boltPtsY[base + k]);
+        }
+        ctx.stroke();
+
+        // Mid vivid yellow thunderbolt
+        ctx.globalAlpha = env * flicker * 0.92;
+        ctx.strokeStyle = '#ffe53b';
+        ctx.lineWidth = Math.max(2.4, 3.2 * us);
+        ctx.stroke();
+
+        // Crisp white-hot electric core
+        ctx.globalAlpha = env * flicker;
+        ctx.strokeStyle = '#fffff0';
+        ctx.lineWidth = Math.max(1.0, 1.35 * us);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+}
+
+

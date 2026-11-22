@@ -651,7 +651,7 @@ function drawSurveyCorpsCloak(backX, backY, s, ink, facing, windBlend, speed, is
  * - Determined angled eyebrows with inner furrow crease (signature Eren resolve!)
  * - Open battle cry shouting mouth with teeth & tongue (TATAKAE!) or fierce clenched glare
  */
-function drawErenHead(cx, cy, s, facingScale, squint, isShouting, isSleepy) {
+function drawErenHead(cx, cy, s, facingScale, squint, isShouting, isSleepy, isAngry) {
   ctx.save();
   ctx.translate(cx, cy);
 
@@ -777,122 +777,180 @@ function drawErenHead(cx, cy, s, facingScale, squint, isShouting, isSleepy) {
     // Eye white (sclera)
     ctx.save();
     ctx.beginPath();
-    ctx.ellipse(ex, eyeY, eyeW, eyeH * (1 - squint * 0.35), 0, 0, Math.PI * 2);
+    if (isAngry) {
+      // Sharply slanted angry glare silhouette (\  / angled down toward nose bridge)
+      const innerY = eyeY - eyeH * 0.08;
+      const outerY = eyeY - eyeH * 0.56;
+      const botY = eyeY + eyeH * 0.58;
+      ctx.moveTo(ex - side * eyeW * 1.02, innerY);
+      ctx.quadraticCurveTo(ex, eyeY - eyeH * 0.28, ex + side * eyeW * 1.05, outerY);
+      ctx.quadraticCurveTo(ex + side * eyeW * 0.92, botY, ex, botY + 0.3 * s);
+      ctx.quadraticCurveTo(ex - side * eyeW * 0.88, botY, ex - side * eyeW * 1.02, innerY);
+      ctx.closePath();
+    } else {
+      ctx.ellipse(ex, eyeY, eyeW, eyeH * (1 - squint * 0.35), 0, 0, Math.PI * 2);
+    }
     ctx.clip();
 
     // Sclera base fill
     ctx.fillStyle = '#ffffff';
     ctx.fill();
 
-    // Subtle soft blue-grey curvature shadow at top of eyeball
-    ctx.fillStyle = '#d9e2ec';
+    // Upper eyeball shadow (much heavier & darker when angry)
+    ctx.fillStyle = isAngry ? 'rgba(28, 34, 42, 0.38)' : '#d9e2ec';
     ctx.beginPath();
-    ctx.ellipse(ex, eyeY - eyeH * 0.35, eyeW, eyeH * 0.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(ex, eyeY - eyeH * (isAngry ? 0.22 : 0.35), eyeW * 1.1, eyeH * 0.52, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Iris (Vibrant Attack on Titan emerald-teal gradient)
+    // Iris (Vibrant Attack on Titan emerald-teal gradient; intense glowing Titan-green when angry!)
     const lookOffX = (eren.lookX || 0) * 1.35 * s;
     const lookOffY = (eren.lookY || 0) * 0.85 * s;
     const irisX = ex + lookOffX;
-    const irisY = eyeY + lookOffY;
-    const irisR = 3.4 * s;
+    const irisY = eyeY + lookOffY + (isAngry ? 0.45 * s : 0);
+    const irisR = (isAngry ? 2.85 : 3.4) * s;
 
     // Multi-stop rich emerald gradient
-    const grad = ctx.createRadialGradient(irisX, irisY - 1.2 * s, 0.4 * s, irisX, irisY, irisR);
-    grad.addColorStop(0.0, '#98fae2');  // bright glowing center
-    grad.addColorStop(0.35, '#38dfb4'); // vivid turquoise
-    grad.addColorStop(0.65, '#168a6d'); // rich emerald
-    grad.addColorStop(0.9, '#0e4a3b');  // deep hunter teal
-    grad.addColorStop(1.0, '#092119');  // dark shadow rim
+    const grad = ctx.createRadialGradient(irisX, irisY - 1.0 * s, 0.35 * s, irisX, irisY, irisR);
+    if (isAngry) {
+      grad.addColorStop(0.0, '#c8ffee');  // fierce glowing Titan-green core
+      grad.addColorStop(0.38, '#3ef5b8'); // electric emerald
+      grad.addColorStop(0.72, '#11966a'); // deep vivid emerald
+      grad.addColorStop(1.0, '#072b20');  // razor-dark rim
+    } else {
+      grad.addColorStop(0.0, '#98fae2');  // bright glowing center
+      grad.addColorStop(0.35, '#38dfb4'); // vivid turquoise
+      grad.addColorStop(0.65, '#168a6d'); // rich emerald
+      grad.addColorStop(0.9, '#0e4a3b');  // deep hunter teal
+      grad.addColorStop(1.0, '#092119');  // dark shadow rim
+    }
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(irisX, irisY, irisR, 0, Math.PI * 2);
     ctx.fill();
 
-    // Dark charcoal-black pupil
+    // Dark charcoal-black pupil (constricted intense pinpoint when angry!)
     ctx.fillStyle = '#06120e';
     ctx.beginPath();
-    ctx.ellipse(irisX, irisY, 1.4 * s, 1.7 * s, 0, 0, Math.PI * 2);
+    if (isAngry) {
+      ctx.ellipse(irisX, irisY, 0.9 * s, 1.15 * s, 0, 0, Math.PI * 2);
+    } else {
+      ctx.ellipse(irisX, irisY, 1.4 * s, 1.7 * s, 0, 0, Math.PI * 2);
+    }
     ctx.fill();
 
-    // Lower-right crescent reflection shine
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-    ctx.beginPath();
-    ctx.arc(irisX + 1.0 * s, irisY + 1.2 * s, 0.9 * s, 0, Math.PI * 2);
-    ctx.fill();
+    if (isAngry) {
+      // Single sharp piercing glint (no cute oversized sparkles)
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(irisX - 0.85 * s, irisY - 0.75 * s, 0.65 * s, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // Lower-right crescent reflection shine
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+      ctx.beginPath();
+      ctx.arc(irisX + 1.0 * s, irisY + 1.2 * s, 0.9 * s, 0, Math.PI * 2);
+      ctx.fill();
 
-    // Secondary crisp white sparkle catchlight (lower-right)
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(irisX + 0.9 * s, irisY + 0.9 * s, 0.65 * s, 0, Math.PI * 2);
-    ctx.fill();
+      // Secondary crisp white sparkle catchlight (lower-right)
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(irisX + 0.9 * s, irisY + 0.9 * s, 0.65 * s, 0, Math.PI * 2);
+      ctx.fill();
 
-    // Primary bright white circular catchlight (top-left)
-    ctx.beginPath();
-    ctx.arc(irisX - 1.2 * s, irisY - 1.1 * s, 1.15 * s, 0, Math.PI * 2);
-    ctx.fill();
+      // Primary bright white circular catchlight (top-left)
+      ctx.beginPath();
+      ctx.arc(irisX - 1.2 * s, irisY - 1.1 * s, 1.15 * s, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     ctx.restore();
 
-    // Heavy bold black upper lash line with sharp winged outer tip (Eren's signature fierce gaze!)
+    // Heavy bold black upper lash line
     ctx.strokeStyle = '#120d0a';
-    ctx.lineWidth = 1.45 * s;
+    ctx.lineWidth = (isAngry ? 1.75 : 1.45) * s;
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(ex - eyeW * 1.08, eyeY - eyeH * 0.35);
-    ctx.quadraticCurveTo(ex, eyeY - eyeH * 0.75, ex + eyeW * 1.15, eyeY - eyeH * 0.32);
+    if (isAngry) {
+      // Sharply slanted furious upper lid cutting down toward nose bridge
+      ctx.moveTo(ex - side * eyeW * 1.08, eyeY - eyeH * 0.06);
+      ctx.quadraticCurveTo(ex, eyeY - eyeH * 0.28, ex + side * eyeW * 1.14, eyeY - eyeH * 0.58);
+    } else {
+      ctx.moveTo(ex - eyeW * 1.08, eyeY - eyeH * 0.35);
+      ctx.quadraticCurveTo(ex, eyeY - eyeH * 0.75, ex + eyeW * 1.15, eyeY - eyeH * 0.32);
+    }
     ctx.stroke();
 
     // Double-crease eyelid line above lash line
     ctx.strokeStyle = '#2b1b12';
     ctx.lineWidth = 0.5 * s;
     ctx.beginPath();
-    ctx.moveTo(ex - eyeW * 0.8, eyeY - eyeH * 0.75);
-    ctx.quadraticCurveTo(ex, eyeY - eyeH * 0.95, ex + eyeW * 0.75, eyeY - eyeH * 0.72);
+    if (isAngry) {
+      ctx.moveTo(ex - side * eyeW * 0.85, eyeY - eyeH * 0.28);
+      ctx.lineTo(ex + side * eyeW * 0.92, eyeY - eyeH * 0.74);
+    } else {
+      ctx.moveTo(ex - eyeW * 0.8, eyeY - eyeH * 0.75);
+      ctx.quadraticCurveTo(ex, eyeY - eyeH * 0.95, ex + eyeW * 0.75, eyeY - eyeH * 0.72);
+    }
     ctx.stroke();
 
-    // Fine lower lash line
+    // Fine lower lash line (+ extra under-eye rage tension line when angry)
     ctx.strokeStyle = '#2b1b12';
-    ctx.lineWidth = 0.55 * s;
+    ctx.lineWidth = (isAngry ? 0.75 : 0.55) * s;
     ctx.beginPath();
-    ctx.moveTo(ex - eyeW * 0.55, eyeY + eyeH * 0.5);
-    ctx.lineTo(ex + eyeW * 0.55, eyeY + eyeH * 0.5);
+    ctx.moveTo(ex - eyeW * 0.65, eyeY + eyeH * (isAngry ? 0.56 : 0.5));
+    ctx.lineTo(ex + eyeW * 0.65, eyeY + eyeH * (isAngry ? 0.56 : 0.5));
     ctx.stroke();
+
+    if (isAngry) {
+      // Classic Attack on Titan under-eye rage shadow line
+      ctx.strokeStyle = 'rgba(72, 36, 26, 0.7)';
+      ctx.lineWidth = 0.55 * s;
+      ctx.beginPath();
+      ctx.moveTo(ex - side * eyeW * 0.65, eyeY + eyeH * 0.74);
+      ctx.quadraticCurveTo(ex, eyeY + eyeH * 0.82, ex + side * eyeW * 0.52, eyeY + eyeH * 0.72);
+      ctx.stroke();
+    }
   }
 
   // =========================================================================
-  // 5. EYEBROWS: THICK DETERMINED ANIME BROWS (Eren's Unwavering Will)
+  // 5. EYEBROWS: THICK DETERMINED ANIME BROWS (Extra Steep & Furious When Angry!)
   // =========================================================================
   ctx.fillStyle = '#1c0f08';
   ctx.strokeStyle = '#120d0a';
   ctx.lineWidth = ink * 0.45;
+  const browDrop = isAngry ? 1.55 * s : 0;
+  const browLiftOuter = isAngry ? 0.9 * s : 0;
 
   // Left eyebrow (steep diagonal arch down toward nose bridge)
   ctx.beginPath();
-  ctx.moveTo(-eyeSpacing - 4.5 * s, eyeY - 4.4 * s);
-  ctx.lineTo(-eyeSpacing + 3.6 * s, eyeY - 2.0 * s);
-  ctx.lineTo(-eyeSpacing - 3.4 * s, eyeY - 5.8 * s);
+  ctx.moveTo(-eyeSpacing - 4.5 * s, eyeY - 4.4 * s - browLiftOuter);
+  ctx.lineTo(-eyeSpacing + 3.8 * s, eyeY - 2.0 * s + browDrop);
+  ctx.lineTo(-eyeSpacing - 3.4 * s, eyeY - 5.8 * s - browLiftOuter);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
 
   // Right eyebrow
   ctx.beginPath();
-  ctx.moveTo(eyeSpacing + 4.5 * s, eyeY - 4.4 * s);
-  ctx.lineTo(eyeSpacing - 3.6 * s, eyeY - 2.0 * s);
-  ctx.lineTo(eyeSpacing + 3.4 * s, eyeY - 5.8 * s);
+  ctx.moveTo(eyeSpacing + 4.5 * s, eyeY - 4.4 * s - browLiftOuter);
+  ctx.lineTo(eyeSpacing - 3.8 * s, eyeY - 2.0 * s + browDrop);
+  ctx.lineTo(eyeSpacing + 3.4 * s, eyeY - 5.8 * s - browLiftOuter);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
 
-  // Forehead furrow wrinkle creases between the eyes
+  // Forehead furrow wrinkle creases between the eyes (deeper when angry)
   ctx.strokeStyle = '#321c10';
-  ctx.lineWidth = 0.55 * s;
+  ctx.lineWidth = (isAngry ? 0.8 : 0.55) * s;
   ctx.beginPath();
-  ctx.moveTo(-1.1 * s, eyeY - 2.8 * s);
-  ctx.lineTo(-0.45 * s, eyeY - 4.2 * s);
-  ctx.moveTo(1.1 * s, eyeY - 2.8 * s);
-  ctx.lineTo(0.45 * s, eyeY - 4.2 * s);
+  ctx.moveTo(-1.1 * s, eyeY - 2.8 * s + browDrop * 0.7);
+  ctx.lineTo(-0.45 * s, eyeY - 4.4 * s + browDrop * 0.2);
+  ctx.moveTo(1.1 * s, eyeY - 2.8 * s + browDrop * 0.7);
+  ctx.lineTo(0.45 * s, eyeY - 4.4 * s + browDrop * 0.2);
+  if (isAngry) {
+    ctx.moveTo(-0.7 * s, eyeY - 1.5 * s + browDrop * 0.5);
+    ctx.lineTo(0.7 * s, eyeY - 1.5 * s + browDrop * 0.5);
+  }
   ctx.stroke();
 
   // =========================================================================

@@ -288,6 +288,7 @@ function drawHooks() {
 // Swing requests (same API as before)
 // ---------------------------------------------------------------------------
 function requestSwingToCard(targetCardIdx) {
+  if (eren.titanState !== TITAN_NONE) return;
   if (targetCardIdx < 0 || targetCardIdx === eren.currentCard) return;
   if (!eren.isSwinging && eren.preJumpTimer <= 0) {
     eren.pendingTargetCard = targetCardIdx;

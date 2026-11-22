@@ -9,6 +9,7 @@ let lmbHoldActive = false;
 let lmbHoldTimerId = 0;
 
 function hitTestCardAndQueue(clientX, clientY) {
+  if (eren.titanState !== TITAN_NONE) return;
   for (let i = CARD_COUNT - 1; i >= 0; i--) {
     const idx = drawOrder[i];
     const c = cards[idx];
@@ -40,14 +41,36 @@ function triggerSingleClickAction(clickX, clickY) {
   if (!config.showEren || !eren.initialized) return;
   const s = uniformScale * config.erenScale;
 
+  // While in Attack Titan mode: NEVER obey or move to another block!
+  if (eren.titanState !== TITAN_NONE) {
+    if (eren.titanState === TITAN_ACTIVE) {
+      const distToTitan = Math.hypot(clickX - eren.x, clickY - (eren.y - 26 * s));
+      if (distToTitan <= 58 * s) {
+        // Clicking the Titan resets his 10s idle timer and triggers an angry strike!
+        eren.titanIdleTimer = 0;
+        pickNextTitanAction();
+      }
+    }
+    return;
+  }
+
   // 1. Check if the user clicked directly on Chibi Eren
   const distToEren = Math.hypot(clickX - eren.x, clickY - (eren.y - 12 * s));
   if (distToEren <= 28 * s) {
-    eren.flipTimer = 1.0;
+    recordErenClick();
+    if (eren.titanState !== TITAN_NONE) {
+      // 5th click triggered Attack Titan transformation!
+      clickEffect.active = false;
+      return;
+    }
     eren.idleTime = 0;
     eren.sassyBlend = 0;
     eren.sitBlend = 0;
     eren.deepIdleBlend = 0;
+    // At 3rd & 4th click, hold angry hand-in-front-of-mouth pose without flipping
+    if (eren.erenClickCount < 3) {
+      eren.flipTimer = 1.0;
+    }
     clickEffect.active = true;
     clickEffect.timer = 0;
     clickEffect.isErenClick = true;

@@ -13,14 +13,22 @@
  *   6. Deep Idle 3: Sitting on an ODM cable swing (holding cables, swaying gently like a playground swing)
  */
 
+function isShowingAttackTitan() {
+  return eren.titanState === TITAN_ACTIVE ||
+    (eren.titanState === TITAN_TRANSFORMING && eren.titanTransTimer >= 0.35) ||
+    (eren.titanState === TITAN_REVERTING && eren.titanTransTimer < 0.50);
+}
+
 function drawErenCastShadow() {
   if (!config.showEren || !eren.initialized || eren.isSwinging) return;
   const s = uniformScale * config.erenScale;
+  const isTitan = isShowingAttackTitan();
+  const scaleMult = isTitan ? 2.0 * Math.max(0.5, 1 - eren.titanJumpY / (85 * s)) : 1.0;
   ctx.save();
-  ctx.globalAlpha = 0.28;
+  ctx.globalAlpha = isTitan ? 0.34 : 0.28;
   ctx.fillStyle = '#000000';
   ctx.beginPath();
-  ctx.ellipse(eren.x, eren.y + 1.2 * s, 10.5 * s, 2.6 * s, 0, 0, Math.PI * 2);
+  ctx.ellipse(eren.x, eren.y + 1.2 * s * scaleMult, 10.5 * s * scaleMult, 2.6 * s * scaleMult, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
@@ -30,6 +38,15 @@ function drawEren() {
 
   const s = uniformScale * config.erenScale;
   const ink = Math.max(0.65, 0.75 * s);
+
+  // Attack Titan rendering branch (2x scale, rampaging on current block!)
+  if (isShowingAttackTitan()) {
+    drawLandingDust();
+    drawSteam();
+    drawAttackTitan(s);
+    drawTitanEffects();
+    return;
+  }
 
   // Background effects behind Eren
   drawLandingDust();
@@ -249,11 +266,12 @@ function drawEren() {
 
       // Check whether blades should be held (only while swinging and for 1.0s after landing)
       const isBladesDrawn = eren.bladeHold > 0;
+      const isAngryBitePose = (eren.titanState === TITAN_NONE && eren.erenClickCount >= 3);
 
       // Survey Corps cloak
       drawSurveyCorpsCloak(0, -12.0 * s, s, ink, dir, eren.windBlend, 0, false);
 
-      if (sit > 0.05) {
+      if (sit > 0.05 && !isAngryBitePose) {
         // Sitting & dangling legs over card edge
         const dangleSwing = Math.sin(elapsedTime * 3.2) * 2.4 * s;
 
@@ -321,7 +339,19 @@ function drawEren() {
         drawErenTorso(0, -11.5 * s + breath, 11.4 * s, 10.5 * s, s, ink);
         drawOdmGear(0, -7.0 * s + breath, s, ink, dir, 0);
 
-        if (isBladesDrawn) {
+        if (isAngryBitePose) {
+          // 3rd & 4th Click Warning Pose: Angry Eren holding his hand directly in front of his mouth!
+          // Left arm clenched tightly at his side
+          const leftElbowX = -6.8 * s;
+          const leftElbowY = -10.5 * s + breath;
+          const leftHandX = -7.4 * s;
+          const leftHandY = -5.2 * s + breath;
+          drawOutlinedSegment(-4.5 * s, -14.5 * s + breath, leftElbowX, leftElbowY, 3.6 * s, '#be8650', ink);
+          drawOutlinedSegment(leftElbowX, leftElbowY, leftHandX, leftHandY, 3.4 * s, '#fee4d2', ink);
+          drawWingsOfFreedom(leftElbowX - 0.5 * s, leftElbowY - 1.2 * s, 3.4 * s);
+          drawErenHand(leftHandX, leftHandY, s, ink, 'fist', -1);
+
+        } else if (isBladesDrawn) {
           // Combat ready stance right after landing: both blades held defensively
           drawOutlinedSegment(-4.5 * s, -14.5 * s + breath, -8.0 * s, -12.0 * s + breath, 3.5 * s, '#be8650', ink);
           drawErenHand(-8.0 * s, -12.0 * s + breath, s, ink, 'grip', -1);
@@ -357,22 +387,50 @@ function drawEren() {
           drawErenHand(leftHandX, leftHandY, s, ink, 'fist', -1);
         }
 
-        // Head (Shouting during combat/reaction/click, or fierce determined glare when perched)
-        const isShouting = (eren.bladeHold > 0 || (typeof clickEffect !== 'undefined' && clickEffect.active) || eren.reactionBlend > 0.05);
+        // Head (Angry open biting mouth at 3rd+ click, or shouting during combat/click, else fierce glare)
+        const isShouting = (isAngryBitePose || eren.bladeHold > 0 || (typeof clickEffect !== 'undefined' && clickEffect.active) || eren.reactionBlend > 0.05);
         eren.headRot = 0;
         eren.headFlipY = 1;
         eren.headWorldX = worldOriginX;
         eren.headWorldY = worldOriginY - 25.5 * s + breath;
-        drawErenHead(0, -25.5 * s + breath, s, eren.facingScale, eren.cursorNear, isShouting, false);
+        drawErenHead(0, -25.5 * s + breath, s, eren.facingScale, isAngryBitePose ? 0.45 : eren.cursorNear, isShouting, false, isAngryBitePose);
+
+        if (isAngryBitePose) {
+          // Anime anger vein mark on forehead/temple
+          ctx.save();
+          ctx.strokeStyle = '#d92626';
+          ctx.lineWidth = Math.max(0.9, 1.1 * s);
+          ctx.lineCap = 'round';
+          const vx = 5.6 * s;
+          const vy = -30.5 * s + breath;
+          const vr = 2.1 * s;
+          ctx.beginPath();
+          ctx.moveTo(vx - vr, vy - vr * 0.4); ctx.quadraticCurveTo(vx - vr * 0.3, vy - vr * 0.3, vx - vr * 0.4, vy - vr);
+          ctx.moveTo(vx + vr, vy - vr * 0.4); ctx.quadraticCurveTo(vx + vr * 0.3, vy - vr * 0.3, vx + vr * 0.4, vy - vr);
+          ctx.moveTo(vx - vr, vy + vr * 0.4); ctx.quadraticCurveTo(vx - vr * 0.3, vy + vr * 0.3, vx - vr * 0.4, vy + vr);
+          ctx.moveTo(vx + vr, vy + vr * 0.4); ctx.quadraticCurveTo(vx + vr * 0.3, vy + vr * 0.3, vx + vr * 0.4, vy + vr);
+          ctx.stroke();
+          ctx.restore();
+
+          // Right arm & hand raised IN FRONT of Eren's mouth (iconic Titan-bite pose!)
+          const biteElbowX = 7.4 * s;
+          const biteElbowY = -13.6 * s + breath;
+          const biteHandX = 1.6 * s;
+          const biteHandY = -18.8 * s + breath;
+          drawOutlinedSegment(4.5 * s, -14.5 * s + breath, biteElbowX, biteElbowY, 3.6 * s, '#be8650', ink);
+          drawOutlinedSegment(biteElbowX, biteElbowY, biteHandX, biteHandY, 3.3 * s, '#fee4d2', ink);
+          drawErenHand(biteHandX, biteHandY, s, ink, 'fist', 1);
+        }
       }
     }
   }
 
   ctx.restore();
 
-  // Overlay Comic Reactions and Click Badges
+  // Overlay Comic Reactions, Click Badges, and Attack Titan Transformation VFX (Lightning / Clouds / Smoke)
   drawCardReaction(s);
   drawClickEffects(s);
+  drawTitanEffects();
 }
 
 /**

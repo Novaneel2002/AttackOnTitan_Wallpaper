@@ -30,17 +30,303 @@ function updateNaturalBlinking(dt) {
 }
 
 /**
+ * Records a direct click on Eren within a 5-second rolling window.
+ * - 3rd & 4th clicks: Eren gets angry with his hand in front of his mouth (hand-bite warning).
+ * - 5th click under 5s: 5-7 yellow thunderbolts + white clouds -> Attack Titan transformation!
+ */
+function recordErenClick() {
+  const now = elapsedTime;
+  let count = 0;
+  for (let i = 0; i < eren.erenClickCount; i++) {
+    if (now - eren.erenClickTimes[i] <= 5.0) {
+      eren.erenClickTimes[count++] = eren.erenClickTimes[i];
+    }
+  }
+  if (count < eren.erenClickTimes.length) {
+    eren.erenClickTimes[count++] = now;
+  }
+  eren.erenClickCount = count;
+
+  if (eren.erenClickCount >= 5) {
+    triggerTitanTransform();
+  }
+}
+
+function triggerTitanTransform() {
+  const s = uniformScale * config.erenScale;
+  eren.erenClickCount = 0;
+
+  // Cancel any ODM swing/jump and lock strictly onto the current block
+  if (typeof releaseAllHooks === 'function') releaseAllHooks();
+  eren.isSwinging = false;
+  eren.preJumpTimer = 0;
+  eren.pendingTargetCard = -1;
+  eren.mode = MODE_PERCH;
+  eren.bladeHold = 0;
+  eren.slashing = false;
+  eren.sassyBlend = 0;
+  eren.sitBlend = 0;
+  eren.deepIdleBlend = 0;
+  eren.reactionBlend = 0;
+  eren.perchMode = PERCH_TOP_NORMAL;
+
+  eren.x = getCardPerchX(eren.currentCard, PERCH_TOP_NORMAL);
+  eren.y = getCardPerchY(eren.currentCard, PERCH_TOP_NORMAL);
+  eren.vx = 0;
+  eren.vy = 0;
+
+  eren.titanState = TITAN_TRANSFORMING;
+  eren.titanTransTimer = 0;
+  eren.titanIdleTimer = 0;
+  eren.titanJumpY = 0;
+  eren.titanSteamAccum = 0;
+  // Randomly jump around to another block 1-2 times during his rampage (never following mouse!)
+  eren.titanHopsRemaining = Math.random() < 0.5 ? 1 : 2;
+  eren.titanNextHopTime = 2.0 + Math.random() * 1.8;
+  eren.titanLeapTargetCard = -1;
+
+  // 5-7 yellow thunderbolts + white clouds around him
+  spawnTitanLightning(eren.x, eren.y, s);
+  spawnTitanClouds(eren.x, eren.y, 28, s, false);
+
+  // Jolt the block he's standing on
+  cards[eren.currentCard].offsetY += 10 * uniformScale;
+}
+
+function pickNextTitanAction() {
+  // Check if it's time for one of his 1-2 random disobedient leaps to another block
+  if (eren.titanHopsRemaining > 0 && eren.titanIdleTimer >= eren.titanNextHopTime && CARD_COUNT > 1) {
+    // Pick a random other block (prefer non-top-row so the 2x Titan stays well inside view)
+    let target = -1;
+    for (let tries = 0; tries < 12; tries++) {
+      const cand = Math.floor(Math.random() * CARD_COUNT);
+      if (cand !== eren.currentCard && !cards[cand].isTopRow) {
+        target = cand;
+        break;
+      }
+    }
+    if (target < 0) {
+      target = (eren.currentCard + 1 + Math.floor(Math.random() * (CARD_COUNT - 1))) % CARD_COUNT;
+    }
+
+    eren.titanHopsRemaining--;
+    eren.titanNextHopTime = eren.titanIdleTimer + 2.4 + Math.random() * 1.6;
+    eren.titanAction = TITAN_ACT_LEAP;
+    eren.titanActionTimer = 0;
+    eren.titanActionDur = 0.88;
+    eren.titanImpactDone = false;
+    eren.titanJumpY = 0;
+    eren.titanLeapStartX = eren.x;
+    eren.titanLeapStartY = eren.y;
+    eren.titanLeapTargetCard = target;
+    const tx = getCardPerchX(target, PERCH_TOP_NORMAL);
+    eren.facing = (tx - eren.x) >= 0 ? 1 : -1;
+    return;
+  }
+
+  // Cycle aggressively through punching, kicking, and jumping on the block (plus brief roars)
+  const r = Math.random();
+  let nextAct;
+  if (r < 0.34) nextAct = TITAN_ACT_PUNCH;
+  else if (r < 0.66) nextAct = TITAN_ACT_KICK;
+  else if (r < 0.90) nextAct = TITAN_ACT_JUMP;
+  else nextAct = TITAN_ACT_ROAR;
+
+  // Avoid repeating the exact same action back-to-back too often
+  if (nextAct === eren.titanAction) {
+    nextAct = (nextAct + 1) % 3;
+  }
+
+  eren.titanAction = nextAct;
+  eren.titanActionTimer = 0;
+  eren.titanImpactDone = false;
+  eren.titanJumpY = 0;
+  eren.titanActionDur = nextAct === TITAN_ACT_JUMP ? 0.95 : (nextAct === TITAN_ACT_ROAR ? 0.85 : 0.78);
+
+  // Occasionally flip facing randomly during rampage (never following the mouse!)
+  if (Math.random() < 0.35) {
+    eren.facing = -eren.facing;
+  }
+}
+
+/**
  * Updates Eren's pendulum swing trajectory, launch crouch, squash-turn,
- * autonomous roaming, and multi-stage idle progression.
+ * autonomous roaming, multi-stage idle progression, and Attack Titan mode.
  */
 function updateEren(dt) {
   if (!config.showEren) return;
+
+  const s = uniformScale * config.erenScale;
+  updateTitanEffects(dt);
+
+  // Prune clicks older than 5 seconds so 3rd-click angry pose resets if 5s elapse
+  if (eren.erenClickCount > 0) {
+    let kept = 0;
+    for (let i = 0; i < eren.erenClickCount; i++) {
+      if (elapsedTime - eren.erenClickTimes[i] <= 5.0) {
+        eren.erenClickTimes[kept++] = eren.erenClickTimes[i];
+      }
+    }
+    eren.erenClickCount = kept;
+  }
+
+  // Update landing dust particles (used by both human Eren and Attack Titan impacts)
+  if (activeDustCount > 0) {
+    let anyAlive = false;
+    for (let i = 0; i < activeDustCount; i++) {
+      if (dustAlpha[i] > 0.01) {
+        dustX[i] += dustVx[i] * dt;
+        dustY[i] += dustVy[i] * dt;
+        dustVx[i] *= Math.exp(-5.5 * dt);
+        dustVy[i] *= Math.exp(-5.5 * dt);
+        dustAlpha[i] -= dt * 2.4;
+        anyAlive = true;
+      }
+    }
+    if (!anyAlive) activeDustCount = 0;
+  }
+
+  // =========================================================================
+  // ATTACK TITAN MODE: Non-obedient, ignores mouse, stays on current block!
+  // =========================================================================
+  if (eren.titanState !== TITAN_NONE) {
+    updateTrailingCables(dt);
+    if (typeof updateSteam === 'function') updateSteam(dt);
+
+    // Strictly ignore mouse cursor (angry & not obedient!)
+    eren.lookX = 0;
+    eren.lookY = 0;
+    eren.cursorNear = 0;
+    eren.windBlend = 0;
+    eren.facingScale = eren.facing;
+    eren.turnHop = 0;
+
+    // Stay locked onto the top of his current image block (unless mid-leap to a random block)
+    if (eren.titanState !== TITAN_ACTIVE || eren.titanAction !== TITAN_ACT_LEAP) {
+      eren.x = getCardPerchX(eren.currentCard, PERCH_TOP_NORMAL);
+      eren.y = getCardPerchY(eren.currentCard, PERCH_TOP_NORMAL);
+    }
+    eren.vx = 0;
+    eren.vy = 0;
+
+    if (eren.titanState === TITAN_TRANSFORMING) {
+      eren.titanTransTimer += dt;
+      if (eren.titanTransTimer >= 0.72) {
+        eren.titanState = TITAN_ACTIVE;
+        eren.titanIdleTimer = 0;
+        eren.titanAction = TITAN_ACT_ROAR;
+        eren.titanActionTimer = 0;
+        eren.titanActionDur = 0.75;
+        eren.titanImpactDone = false;
+      }
+    } else if (eren.titanState === TITAN_ACTIVE) {
+      eren.titanIdleTimer += dt;
+      eren.titanActionTimer += dt;
+
+      // Subtle rising Titan heat steam
+      eren.titanSteamAccum += dt;
+      if (eren.titanSteamAccum >= 0.36) {
+        eren.titanSteamAccum = 0;
+        spawnTitanClouds(eren.x + (Math.random() - 0.5) * 18 * s, eren.y - 16 * s, 1, s * 0.48, false);
+      }
+
+      const p = Math.min(1, eren.titanActionTimer / Math.max(0.01, eren.titanActionDur));
+      const c = cards[eren.currentCard];
+
+      if (eren.titanAction === TITAN_ACT_LEAP && eren.titanLeapTargetCard >= 0) {
+        const tx = getCardPerchX(eren.titanLeapTargetCard, PERCH_TOP_NORMAL);
+        const ty = getCardPerchY(eren.titanLeapTargetCard, PERCH_TOP_NORMAL);
+        if (p < 0.18) {
+          eren.x = eren.titanLeapStartX;
+          eren.y = eren.titanLeapStartY;
+          eren.titanJumpY = 0;
+        } else if (p < 0.82) {
+          const u = (p - 0.18) / 0.64;
+          eren.x = eren.titanLeapStartX + (tx - eren.titanLeapStartX) * u;
+          eren.y = eren.titanLeapStartY + (ty - eren.titanLeapStartY) * u;
+          const dist = Math.hypot(tx - eren.titanLeapStartX, ty - eren.titanLeapStartY);
+          const arcH = Math.max(60 * s, Math.min(145 * s, dist * 0.42));
+          eren.titanJumpY = Math.sin(u * Math.PI) * arcH;
+        } else {
+          eren.currentCard = eren.titanLeapTargetCard;
+          eren.x = tx;
+          eren.y = ty;
+          eren.titanJumpY = 0;
+          if (!eren.titanImpactDone) {
+            eren.titanImpactDone = true;
+            cards[eren.currentCard].offsetY += 18 * uniformScale;
+            spawnLandingImpact(eren.x, eren.y, 0, -1);
+            spawnTitanClouds(eren.x, eren.y, 7, s * 0.72, false);
+          }
+        }
+      } else if (eren.titanAction === TITAN_ACT_JUMP) {
+        if (p >= 0.22 && p <= 0.72) {
+          eren.titanJumpY = Math.sin(((p - 0.22) / 0.50) * Math.PI) * 34 * s;
+        } else {
+          eren.titanJumpY = 0;
+        }
+        if (p >= 0.72 && !eren.titanImpactDone) {
+          eren.titanImpactDone = true;
+          c.offsetY += 14 * uniformScale;
+          spawnLandingImpact(eren.x, eren.y, 0, -1);
+        }
+      } else if (eren.titanAction === TITAN_ACT_PUNCH) {
+        eren.titanJumpY = 0;
+        if (p >= 0.52 && !eren.titanImpactDone) {
+          eren.titanImpactDone = true;
+          c.offsetY += 11 * uniformScale;
+          spawnLandingImpact(eren.x + eren.facing * 14 * s, eren.y, 0, -1);
+        }
+      } else if (eren.titanAction === TITAN_ACT_KICK) {
+        eren.titanJumpY = 0;
+        if (p >= 0.52 && !eren.titanImpactDone) {
+          eren.titanImpactDone = true;
+          c.offsetY += 9 * uniformScale;
+          c.offsetX += eren.facing * 6 * uniformScale;
+          spawnLandingImpact(eren.x + eren.facing * 16 * s, eren.y, 0, -1);
+        }
+      } else {
+        eren.titanJumpY = 0;
+      }
+
+      if (eren.titanActionTimer >= eren.titanActionDur) {
+        pickNextTitanAction();
+      }
+
+      // After being left idle for 10 seconds -> revert back to Eren with lots of smoke!
+      if (eren.titanIdleTimer >= 10.0 && eren.titanAction !== TITAN_ACT_LEAP) {
+        eren.titanState = TITAN_REVERTING;
+        eren.titanTransTimer = 0;
+        eren.titanJumpY = 0;
+        eren.titanSteamAccum = 0;
+        spawnTitanClouds(eren.x, eren.y, 34, s, true);
+      }
+    } else if (eren.titanState === TITAN_REVERTING) {
+      eren.titanTransTimer += dt;
+      // Continuously billow dense white evaporation smoke during the transition back
+      if (eren.titanTransTimer < 0.65) {
+        eren.titanSteamAccum += dt;
+        if (eren.titanSteamAccum >= 0.08) {
+          eren.titanSteamAccum = 0;
+          spawnTitanClouds(eren.x, eren.y, 5, s, true);
+        }
+      }
+      if (eren.titanTransTimer >= 1.0) {
+        eren.titanState = TITAN_NONE;
+        eren.titanTransTimer = 0;
+        eren.titanIdleTimer = 0;
+        eren.erenClickCount = 0;
+        eren.idleTime = 0;
+        eren.landSquash = 0.6;
+      }
+    }
+    return;
+  }
 
   updateNaturalBlinking(dt);
 
   // Eye tracking toward the cursor + squint when the cursor gets very close
   {
-    const s = uniformScale * config.erenScale;
     let tx = 0;
     let ty = 0;
     let near = 0;
@@ -102,22 +388,6 @@ function updateEren(dt) {
     eren.bladeHold = Math.max(0, eren.bladeHold - dt);
   }
 
-  // Update landing dust particles
-  if (activeDustCount > 0) {
-    let anyAlive = false;
-    for (let i = 0; i < activeDustCount; i++) {
-      if (dustAlpha[i] > 0.01) {
-        dustX[i] += dustVx[i] * dt;
-        dustY[i] += dustVy[i] * dt;
-        dustVx[i] *= Math.exp(-5.5 * dt);
-        dustVy[i] *= Math.exp(-5.5 * dt);
-        dustAlpha[i] -= dt * 2.4;
-        anyAlive = true;
-      }
-    }
-    if (!anyAlive) activeDustCount = 0;
-  }
-
   // Handle 0.11s launch crouch anticipation before jumping off a card
   if (eren.preJumpTimer > 0) {
     eren.preJumpTimer -= dt;
@@ -169,10 +439,13 @@ function updateEren(dt) {
     eren.reactionBlend += ((wantReact ? 1 : 0) - eren.reactionBlend) * (1 - Math.exp(-(wantReact ? 6.0 : 3.0) * dt));
     if (wantReact) {
       targetDeep = 0;
-      if (reactCode === REACT_HELLYES) { targetSassy = 1; targetSit = 0; }
-      else if (reactCode === REACT_GIMME) { targetSassy = 0; targetSit = 0; }
-      else if (reactCode === REACT_AWESOME) { eren.deepIdleMode = DEEP_IDLE_LIE_DOWN; targetDeep = 1; }
-      else if (reactCode === REACT_CHILL) { targetSit = 1; targetSassy = 0; }
+      if (reactCode === REACT_EREN || reactCode === REACT_REINER || reactCode === REACT_ERWIN) {
+        targetSassy = 1; targetSit = 0;
+      } else if (reactCode === REACT_MIKASA || reactCode === REACT_YMIR) {
+        targetSit = 0; targetSassy = 0;
+      } else if (reactCode === REACT_LEVI || reactCode === REACT_ANNIE) {
+        targetSassy = 0; targetSit = 0;
+      }
     }
 
     eren.sassyBlend += (targetSassy - eren.sassyBlend) * (1 - Math.exp(-5.0 * dt));
@@ -198,21 +471,24 @@ function drawComicBubble(x, y, text, s, alpha, rot) {
   if (alpha <= 0.02) return;
   ctx.save();
   ctx.globalAlpha = alpha;
-  ctx.translate(x, y);
-  ctx.rotate(rot);
-  const w = text.length * 5.0 * s + 11 * s;
+  const w = text.length * 5.0 * s + 12 * s;
   const hw = w * 0.5;
+  // Clamp bubble inside viewport so it never clips off screen edges
+  const clampedX = Math.max(hw + 8, Math.min(viewWidth - hw - 8, x));
+  const clampedY = Math.max(14 * s + 6, y);
+  ctx.translate(clampedX, clampedY);
+  ctx.rotate(rot);
   const tailDir = -eren.facing;
 
   // 1. Hard comic offset shadow
   ctx.fillStyle = '#080608';
-  traceRoundedRect(-hw + 1.6 * s, -8 * s + 1.8 * s, w, 16 * s, 5 * s);
+  traceRoundedRect(-hw + 1.5 * s, -8 * s + 1.7 * s, w, 16 * s, 5 * s);
   ctx.fill();
 
   // 2. Main speech bubble + pointer tail toward Eren
   ctx.fillStyle = '#fffef2';
   ctx.strokeStyle = '#080608';
-  ctx.lineWidth = 1.6 * s;
+  ctx.lineWidth = 1.2 * s;
   traceRoundedRect(-hw, -8 * s, w, 16 * s, 5 * s);
   ctx.fill();
   ctx.stroke();
@@ -226,8 +502,8 @@ function drawComicBubble(x, y, text, s, alpha, rot) {
   ctx.stroke();
 
   // 3. Bold comic lettering
-  ctx.fillStyle = '#d11f28';
-  ctx.font = '900 ' + Math.round(8.5 * s) + 'px Impact, Arial Black, sans-serif';
+  ctx.fillStyle = '#1c2e4a';
+  ctx.font = '900 ' + Math.round(8.2 * s) + 'px Impact, Arial Black, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(text, 0, 0.5 * s);
@@ -261,83 +537,69 @@ function drawSweatDrop(x, y, size, alpha) {
 }
 
 /**
- * Mini-reactions when the cursor rests on the special card Eren is perched on.
+ * Mini-reactions when the cursor rests on each Attack on Titan character card Eren is perched on.
  */
 function drawCardReaction(s) {
   const a = eren.reactionBlend;
-  if (a < 0.03 || eren.isSwinging || !eren.headWorldX) return;
+  if (a < 0.03 || eren.isSwinging || eren.titanState !== TITAN_NONE || !eren.headWorldX) return;
   const hx = eren.headWorldX;
   const hy = eren.headWorldY;
   const f = eren.facing;
   const pop = Math.min(1, a * 1.3);
-  const bx = hx + f * 22 * s;
+  const bx = hx + f * 24 * s;
   const by = hy - 20 * s - (1 - pop) * 6 * s;
   const code = eren.reactionCode;
 
-  if (code === REACT_HEARTS) {
+  if (code === REACT_ERWIN) {
+    // 0: Commander Erwin Smith
+    drawComicBubble(bx, by - Math.abs(Math.sin(elapsedTime * 5)) * 2 * s, 'SASAGEYO!', s, a, -0.1 * f);
+  } else if (code === REACT_FLOCH) {
+    // 1: Floch Forster
+    drawComicBubble(bx, by, 'FOR ELDIA!', s, a, -0.09 * f);
+  } else if (code === REACT_MIKASA) {
+    // 2: Mikasa Ackerman (floating hearts + soft bubble)
     ctx.save();
     ctx.fillStyle = '#ff4d6d';
     ctx.strokeStyle = '#080608';
-    ctx.lineWidth = 0.9 * s;
+    ctx.lineWidth = 0.8 * s;
     for (let k = 0; k < 3; k++) {
       const p = (elapsedTime * 0.55 + k / 3) % 1;
       ctx.globalAlpha = a * Math.sin(p * Math.PI);
-      const size = (5 + p * 2.5) * s;
-      drawHeartShape(hx + (k - 1) * 9 * s + Math.sin(p * 6 + k) * 3 * s, hy - 14 * s - p * 28 * s, size);
+      const size = (4.5 + p * 2.2) * s;
+      drawHeartShape(hx + (k - 1) * 9 * s + Math.sin(p * 6 + k) * 3 * s, hy - 14 * s - p * 26 * s, size);
       ctx.fill();
       ctx.stroke();
     }
     ctx.restore();
-  } else if (code === REACT_MUSIC) {
-    ctx.save();
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    for (let k = 0; k < 3; k++) {
-      const p = (elapsedTime * 0.5 + k / 3) % 1;
-      ctx.globalAlpha = a * Math.sin(p * Math.PI) * 0.95;
-      ctx.font = 'bold ' + Math.round((9 + p * 3) * s) + 'px sans-serif';
-      ctx.fillText(k === 1 ? '\u266B' : '\u266A', hx + f * (10 + k * 6) * s + Math.sin(p * 7 + k) * 3 * s, hy - 10 * s - p * 26 * s);
-    }
-    ctx.restore();
-  } else if (code === REACT_CAMERA) {
-    const p = (elapsedTime * 0.7) % 1;
-    const flash = p < 0.12 ? 1 - p / 0.12 : 0;
-    if (flash > 0.01) {
-      const fx = hx + f * 16 * s;
-      const fy = hy - 2 * s;
-      const r = 11 * s * (0.6 + flash * 0.4);
-      ctx.save();
-      ctx.globalAlpha = a * flash;
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.moveTo(fx, fy - r);
-      ctx.quadraticCurveTo(fx, fy, fx + r, fy);
-      ctx.quadraticCurveTo(fx, fy, fx, fy + r);
-      ctx.quadraticCurveTo(fx, fy, fx - r, fy);
-      ctx.quadraticCurveTo(fx, fy, fx, fy - r);
-      ctx.fill();
-      ctx.restore();
-    }
-    drawComicBubble(bx, by, 'CLICK!', s, a, -0.1 * f);
-  } else if (code === REACT_OWW) {
-    const shake = Math.sin(elapsedTime * 40) * 1.2 * s;
-    drawComicBubble(bx + shake, by, 'OWW!', s, a, -0.14 * f);
+    drawComicBubble(bx, by, 'MIKASA...', s, a, -0.05 * f);
+  } else if (code === REACT_PIECK) {
+    // 3: Pieck Finger (hands up in Scout uniform)
+    drawComicBubble(bx, by, 'HANDS UP!', s, a, 0.08 * f);
+  } else if (code === REACT_ARMIN) {
+    // 4: Armin Arlert (sweating/worried)
+    drawSweatDrop(hx - f * 13 * s, hy - 7 * s + ((elapsedTime * 0.65) % 1) * 5 * s, 3.2 * s, a);
+    drawComicBubble(bx, by, 'THE SEA, ARMIN!', s, a, -0.06 * f);
+  } else if (code === REACT_EREN) {
+    // 5: Season 4 Eren Yeager (Center card)
+    const shake = Math.sin(elapsedTime * 36) * 1.0 * s;
+    drawComicBubble(bx + shake, by, 'TATAKAE!', s, a, -0.12 * f);
+  } else if (code === REACT_SASHA) {
+    // 6: Sasha Braus
+    drawComicBubble(bx, by - Math.abs(Math.sin(elapsedTime * 6)) * 2 * s, 'MEAT!!', s, a, -0.1 * f);
+  } else if (code === REACT_ANNIE) {
+    // 7: Annie Leonhart (manic laugh)
+    const shake = Math.sin(elapsedTime * 42) * 1.2 * s;
     drawSweatDrop(hx - f * 13 * s, hy - 6 * s + ((elapsedTime * 0.8) % 1) * 5 * s, 3.2 * s, a);
-  } else if (code === REACT_SWEAT) {
-    drawSweatDrop(hx - f * 13 * s, hy - 8 * s + ((elapsedTime * 0.6) % 1) * 6 * s, 3.4 * s, a);
-    drawComicBubble(bx, by, '...', s, a, 0);
-  } else if (code === REACT_GIMME) {
-    drawComicBubble(bx, by - Math.abs(Math.sin(elapsedTime * 6)) * 2 * s, 'GIMME!', s, a, -0.12 * f);
-  } else if (code === REACT_HELLYES) {
-    drawComicBubble(bx, by, 'HELL YEAH!', s, a, -0.1 * f);
-  } else if (code === REACT_AWESOME) {
-    drawComicBubble(bx, by, 'AWESOME.', s, a, -0.06 * f);
-  } else if (code === REACT_CONFUSED) {
-    drawComicBubble(bx, by, '?!', s, a, 0.1 * f);
-  } else if (code === REACT_OUCH) {
-    drawComicBubble(bx, by, 'ouch...', s, a, 0.05 * f);
-  } else if (code === REACT_CHILL) {
-    drawComicBubble(bx, by, 'NICE.', s, a, -0.05 * f);
+    drawComicBubble(bx + shake, by, 'ANNIE?!', s, a, -0.13 * f);
+  } else if (code === REACT_REINER) {
+    // 8: Depressed Reiner Braun
+    drawComicBubble(bx, by, 'SIT DOWN, REINER.', s, a, -0.04 * f);
+  } else if (code === REACT_LEVI) {
+    // 9: Captain Levi Ackerman (cold glare -> nervous sweat!)
+    drawSweatDrop(hx - f * 13 * s, hy - 8 * s + ((elapsedTime * 0.7) % 1) * 6 * s, 3.4 * s, a);
+    drawComicBubble(bx, by, 'CAPTAIN!!', s, a, 0.08 * f);
+  } else if (code === REACT_YMIR) {
+    // 10: Founder Ymir Fritz
+    drawComicBubble(bx, by, 'YOU ARE FREE.', s, a, -0.04 * f);
   }
 }
